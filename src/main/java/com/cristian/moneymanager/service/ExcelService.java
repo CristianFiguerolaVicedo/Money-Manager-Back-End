@@ -41,7 +41,7 @@ public class ExcelService {
 
     public void writeExpensesToExcel(OutputStream os, List<ExpenseDto> expenses) throws IOException {
         try(Workbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet("Incomes");
+            Sheet sheet = workbook.createSheet("Expenses");
             Row header = sheet.createRow(0);
             header.createCell(0).setCellValue("S.No");
             header.createCell(1).setCellValue("Name");

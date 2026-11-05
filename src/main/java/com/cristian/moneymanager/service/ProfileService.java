@@ -13,7 +13,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -33,6 +35,21 @@ public class ProfileService {
     private String activationURL;
 
     public ProfileDto registerProfile(ProfileDto profileDto) {
+        if (profileDto.getFullName() == null || profileDto.getFullName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Full name is required");
+        }
+        if (profileDto.getEmail() == null || profileDto.getEmail().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
+        }
+        if (profileDto.getPassword() == null || profileDto.getPassword().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password is required");
+        }
+        profileDto.setEmail(profileDto.getEmail().trim());
+        if (profileRepository.findByEmail(profileDto.getEmail()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "An account with this email already exists");
+        }
+
+        profileDto.setId(null); // never let the client choose (or overwrite) an id
         ProfileEntity newProfile = toEntity(profileDto);
         newProfile.setActivationToken(UUID.randomUUID().toString());
         newProfile = profileRepository.save(newProfile);
@@ -47,6 +64,7 @@ public class ProfileService {
         return profileRepository.findByActivationToken(activationToken)
                 .map(profile -> {
                     profile.setIsActive(true);
+                    profile.setActivationToken(null); // single-use token
                     profileRepository.save(profile);
                     return true;
                 })

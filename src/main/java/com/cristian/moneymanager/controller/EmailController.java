@@ -4,12 +4,12 @@ import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.service.*;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
-import org.apache.tomcat.util.http.fileupload.ByteArrayOutputStream;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 @RestController

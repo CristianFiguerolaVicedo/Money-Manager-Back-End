@@ -29,7 +29,6 @@ public class ProfileEntity {
     @Column(updatable = false)
     @CreationTimestamp
     private LocalDateTime createdAt;
-    @Column(updatable = false)
     @UpdateTimestamp
     private LocalDateTime updatedAt;
     private Boolean isActive;

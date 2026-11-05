@@ -15,23 +15,40 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping(path = "/filter")
 public class FilterController {
 
+    private static final LocalDate EARLIEST_DATE = LocalDate.of(1900, 1, 1);
+
+    // Whitelist of sortable fields (request value -> entity property)
+    private static final Map<String, String> SORT_FIELDS = Map.of(
+            "date", "date",
+            "amount", "amount",
+            "name", "name",
+            "category", "category.name"
+    );
+
     private final IncomeService incomeService;
     private final ExpenseService expenseService;
 
     @PostMapping
     public ResponseEntity<?> filterTransactions(@RequestBody FilterDto filterDto) {
-        LocalDate startDate = filterDto.getStartDate() != null ? filterDto.getStartDate() : LocalDate.MIN;
-        LocalDate endDate = filterDto.getEndDate() != null ? filterDto.getEndDate() : LocalDate.now();
-        String keyword = filterDto.getKeyword() != null ? filterDto.getKeyword() : "";
-        String sortField = filterDto.getSortField() != null ? filterDto.getSortField() : "date";
+        // LocalDate.MIN is out of range for MySQL/PostgreSQL, so use a sane lower bound instead
+        LocalDate startDate = filterDto.getStartDate() != null ? filterDto.getStartDate() : EARLIEST_DATE;
+        // Allow one extra day because the client's local date may be ahead of the server (UTC)
+        LocalDate endDate = filterDto.getEndDate() != null ? filterDto.getEndDate() : LocalDate.now().plusDays(1);
+        if (startDate.isAfter(endDate)) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Start date must be before end date"));
+        }
+        String keyword = filterDto.getKeyword() != null ? filterDto.getKeyword().trim() : "";
+        String sortField = SORT_FIELDS.getOrDefault(
+                filterDto.getSortField() != null ? filterDto.getSortField().toLowerCase() : "date", "date");
         Sort.Direction direction = "desc".equalsIgnoreCase(filterDto.getSortOrder()) ? Sort.Direction.DESC : Sort.Direction.ASC;
-        Sort sort = Sort.by(direction, sortField);
+        Sort sort = Sort.by(direction, sortField).and(Sort.by(direction, "id"));
 
         if ("income".equalsIgnoreCase(filterDto.getType())) {
             List<IncomeDto> incomes = incomeService.filterIncomes(startDate, endDate, keyword, sort);
@@ -40,7 +57,7 @@ public class FilterController {
             List<ExpenseDto> expenses = expenseService.filterExpenses(startDate, endDate, keyword, sort);
             return ResponseEntity.ok(expenses);
         } else {
-            return ResponseEntity.badRequest().body("Invalid type, must be 'income' or 'expense'");
+            return ResponseEntity.badRequest().body(Map.of("message", "Invalid type, must be 'income' or 'expense'"));
         }
     }
 }

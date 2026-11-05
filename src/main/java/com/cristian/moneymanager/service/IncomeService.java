@@ -10,7 +10,9 @@ import com.cristian.moneymanager.repository.CategoryRepository;
 import com.cristian.moneymanager.repository.IncomeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -26,11 +28,16 @@ public class IncomeService {
 
     public IncomeDto addIncome(IncomeDto dto) {
         ProfileEntity profile = profileService.getCurrentProfile();
-        CategoryEntity category = categoryRepository.findById(dto.getCategoryId())
-                .orElseThrow(() -> new RuntimeException("Category not found"));
+        validate(dto);
+        CategoryEntity category = categoryRepository.findByIdAndProfileId(dto.getCategoryId(), profile.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
+
+        if (!"income".equalsIgnoreCase(category.getType())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The selected category is not an income category");
+        }
 
         IncomeEntity newIncome = toEntity(dto, profile, category);
-        incomeRepository.save(newIncome);
+        newIncome = incomeRepository.save(newIncome);
 
         return toDto(newIncome);
     }
@@ -51,10 +58,10 @@ public class IncomeService {
     public void deleteIncome(Long id) {
         ProfileEntity profile = profileService.getCurrentProfile();
         IncomeEntity entity = incomeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Income not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Income not found"));
 
         if (!entity.getProfile().getId().equals(profile.getId())) {
-            throw new RuntimeException("Unauthorized to delete this income");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized to delete this income");
         }
 
         incomeRepository.delete(entity);
@@ -88,6 +95,21 @@ public class IncomeService {
     }
 
     //////////////////////////////// Helper Methods
+
+    private void validate(IncomeDto dto) {
+        if (dto.getName() == null || dto.getName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Name is required");
+        }
+        if (dto.getCategoryId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is required");
+        }
+        if (dto.getAmount() == null || dto.getAmount().signum() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Amount must be greater than 0");
+        }
+        if (dto.getDate() != null && dto.getDate().isAfter(LocalDate.now().plusDays(1))) { // +1 day: client may be ahead of server (UTC)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date cannot be in the future");
+        }
+    }
 
     private IncomeEntity toEntity(IncomeDto dto, ProfileEntity profile, CategoryEntity category) {
         return IncomeEntity.builder()
