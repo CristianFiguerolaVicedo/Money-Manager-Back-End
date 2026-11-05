@@ -7,6 +7,7 @@ import com.cristian.moneymanager.entity.ProfileEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,11 +61,13 @@ public class DashboardService {
 
                     return cmp;
                 }).toList();
-                // Could be '.collect(Collectors.toList()'
 
-        returnValue.put("totalBalance", incomeService.getTotalIncomesForCurrentUser().subtract(expenseService.getTotalExpensesForCurrentUser()));
-        returnValue.put("totalIncome", incomeService.getTotalIncomesForCurrentUser());
-        returnValue.put("totalExpense", expenseService.getTotalExpensesForCurrentUser());
+        BigDecimal totalIncome = incomeService.getTotalIncomesForCurrentUser();
+        BigDecimal totalExpense = expenseService.getTotalExpensesForCurrentUser();
+
+        returnValue.put("totalBalance", totalIncome.subtract(totalExpense));
+        returnValue.put("totalIncome", totalIncome);
+        returnValue.put("totalExpense", totalExpense);
         returnValue.put("recent5Expense", latestExpenses);
         returnValue.put("recent5Incomes", latestIncomes);
         returnValue.put("recentTransactions", recentTransactions);

@@ -8,7 +8,9 @@ import com.cristian.moneymanager.repository.CategoryRepository;
 import com.cristian.moneymanager.repository.ExpenseRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -25,11 +27,16 @@ public class ExpenseService {
 
     public ExpenseDto addExpense(ExpenseDto dto) {
         ProfileEntity profile = profileService.getCurrentProfile();
-        CategoryEntity category = categoryRepository.findById(dto.getCategoryId())
-                .orElseThrow(() -> new RuntimeException("Category not found"));
+        validate(dto);
+        CategoryEntity category = categoryRepository.findByIdAndProfileId(dto.getCategoryId(), profile.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
+
+        if (!"expense".equalsIgnoreCase(category.getType())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The selected category is not an expense category");
+        }
 
         ExpenseEntity newExpense = toEntity(dto, profile, category);
-        expenseRepository.save(newExpense);
+        newExpense = expenseRepository.save(newExpense);
 
         return toDto(newExpense);
     }
@@ -50,10 +57,10 @@ public class ExpenseService {
     public void deleteExpense(Long id) {
         ProfileEntity profile = profileService.getCurrentProfile();
         ExpenseEntity entity = expenseRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Expense not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found"));
 
         if (!entity.getProfile().getId().equals(profile.getId())) {
-            throw new RuntimeException("Unauthorized to delete this expense");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized to delete this expense");
         }
 
         expenseRepository.delete(entity);
@@ -96,6 +103,21 @@ public class ExpenseService {
     }
 
     //////////////////////////////// Helper Methods
+
+    private void validate(ExpenseDto dto) {
+        if (dto.getName() == null || dto.getName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Name is required");
+        }
+        if (dto.getCategoryId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is required");
+        }
+        if (dto.getAmount() == null || dto.getAmount().signum() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Amount must be greater than 0");
+        }
+        if (dto.getDate() != null && dto.getDate().isAfter(LocalDate.now().plusDays(1))) { // +1 day: client may be ahead of server (UTC)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date cannot be in the future");
+        }
+    }
 
     private ExpenseEntity toEntity(ExpenseDto dto, ProfileEntity profile, CategoryEntity category) {
         return ExpenseEntity.builder()

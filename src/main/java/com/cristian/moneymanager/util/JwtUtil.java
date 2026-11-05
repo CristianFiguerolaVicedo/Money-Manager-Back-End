@@ -53,8 +53,8 @@ public class JwtUtil {
 
             return (username.equals(userDetails.getUsername()) && !claims.getExpiration().before(new Date()));
 
-        } catch (ExpiredJwtException | UnsupportedJwtException | MalformedJwtException | SignatureException | IllegalArgumentException e) {
-            throw new JwtException("Invalid token: " + e.getMessage());
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
         }
     }
 }
