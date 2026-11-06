@@ -2,7 +2,6 @@ package com.cristian.moneymanager.controller;
 
 import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.service.*;
-import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,7 +22,7 @@ public class EmailController {
     private final ProfileService profileService;
 
     @GetMapping("/income-excel")
-    public ResponseEntity<Void> emailIncomeExcel() throws IOException, MessagingException {
+    public ResponseEntity<Void> emailIncomeExcel() throws IOException {
         ProfileEntity profile = profileService.getCurrentProfile();
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         excelService.writeIncomesToExcel(baos, incomeService.getCurrentMonthIncomesForCurrentUser());
@@ -32,7 +31,7 @@ public class EmailController {
     }
 
     @GetMapping("/expense-excel")
-    public ResponseEntity<Void> emailExpenseExcel() throws IOException, MessagingException {
+    public ResponseEntity<Void> emailExpenseExcel() throws IOException {
         ProfileEntity profile = profileService.getCurrentProfile();
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         excelService.writeExpensesToExcel(baos, expenseService.getCurrentMonthExpensesForCurrentUser());
