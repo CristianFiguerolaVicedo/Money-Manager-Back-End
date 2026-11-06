@@ -45,19 +45,41 @@ public class ProfileService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password is required");
         }
         profileDto.setEmail(profileDto.getEmail().trim());
-        if (profileRepository.findByEmail(profileDto.getEmail()).isPresent()) {
+        profileDto.setId(null); // never let the client choose (or overwrite) an id
+
+        ProfileEntity existing = profileRepository.findByEmail(profileDto.getEmail()).orElse(null);
+        ProfileEntity profile;
+        if (existing == null) {
+            profile = toEntity(profileDto);
+        } else if (Boolean.TRUE.equals(existing.getIsActive())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "An account with this email already exists");
+        } else {
+            // Registered before but never activated (e.g. the activation email was lost):
+            // refresh the details and send a new activation link instead of blocking the email forever.
+            ProfileEntity fresh = toEntity(profileDto);
+            existing.setFullName(fresh.getFullName());
+            existing.setPassword(fresh.getPassword());
+            existing.setProfileImageUrl(fresh.getProfileImageUrl());
+            profile = existing;
         }
 
-        profileDto.setId(null); // never let the client choose (or overwrite) an id
-        ProfileEntity newProfile = toEntity(profileDto);
-        newProfile.setActivationToken(UUID.randomUUID().toString());
-        newProfile = profileRepository.save(newProfile);
-        String activationLink = activationURL + "/api/v1.0/activate?token=" + newProfile.getActivationToken();
+        profile.setActivationToken(UUID.randomUUID().toString());
+        profile = profileRepository.save(profile);
+        sendActivationEmail(profile);
+        return toDto(profile);
+    }
+
+    private void sendActivationEmail(ProfileEntity profile) {
+        String activationLink = activationURL + "/api/v1.0/activate?token=" + profile.getActivationToken();
         String subject = "Activate your Money Manager account";
         String body = "Click on the following link to activate your account: " + activationLink;
-        emailService.sendEmail(newProfile.getEmail(), subject, body);
-        return toDto(newProfile);
+        try {
+            emailService.sendEmail(profile.getEmail(), subject, body);
+        } catch (RuntimeException e) {
+            // The account is saved; registering again with the same email re-sends the link.
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Your account was created but the activation email could not be sent. Please try registering again in a few minutes.", e);
+        }
     }
 
     public boolean activateProfile(String activationToken) {
