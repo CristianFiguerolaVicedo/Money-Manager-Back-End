@@ -1,6 +1,8 @@
 package com.cristian.moneymanager.service;
 
 import com.cristian.moneymanager.dto.ExpenseDto;
+import com.cristian.moneymanager.email.EmailContent;
+import com.cristian.moneymanager.email.EmailTemplate;
 import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,12 +34,14 @@ public class NotificationService {
         log.info("Job started: sendDailyIncomeExpenseReminder()");
         List<ProfileEntity> profiles = profileRepository.findByIsActiveTrue();
         for (ProfileEntity profile : profiles) {
-            String body = "Hola, " + HtmlUtils.htmlEscape(String.valueOf(profile.getFullName())) + ":<br><br>"
-                    + "Te recordamos que añadas tus ingresos y gastos de hoy en Money Manager.<br><br>"
-                    + "<a href='" + frontendUrl + "' style='display:inline-block;padding:10px 20px;background-color:#4CAF50;color:#fff;text-decoration:none;border-radius:5px;font-weight:bold;'>Ir a Money Manager</a>"
-                    + "<br><br>Un saludo,<br>El equipo de Money Manager";
+            EmailContent email = EmailTemplate.builder("Recordatorio: añade tus ingresos y gastos de hoy")
+                    .preheader("Un minuto al día mantiene tus cuentas al día")
+                    .greeting(profile.getFullName())
+                    .paragraph("Te recordamos que añadas en Money Manager los ingresos y gastos que hayas tenido hoy.")
+                    .button("Ir a Money Manager", frontendUrl)
+                    .build();
 
-            sendSafely(profile.getEmail(), "Recordatorio: añade tus ingresos y gastos de hoy", body);
+            sendSafely(profile.getEmail(), email);
         }
         log.info("Job completed: sendDailyIncomeExpenseReminder()");
     }
@@ -50,35 +54,50 @@ public class NotificationService {
         for (ProfileEntity profile : profiles) {
             List<ExpenseDto> expenses = expenseService.getExpensesForUserOnDate(profile.getId(), LocalDate.now());
             if (!expenses.isEmpty()) {
-                StringBuilder table = new StringBuilder();
-                table.append("<table style='border-collapse:collapse;width:100%;'>");
-                table.append("<tr style='background-color:#f2f2f2;'><th style='border:1px solid #ddd;padding:8px;'>Nº</th><th style='border:1px solid #ddd;padding:8px;'>Nombre</th><th style='border:1px solid #ddd;padding:8px;'>Importe</th><th style='border:1px solid #ddd;padding:8px;'>Categoría</th></tr>");
-                int i = 1;
+                String cell = "border-bottom:1px solid #e5e7eb;padding:10px 8px;font-size:14px;color:#1f2937;";
+                String head = "border-bottom:2px solid #e5e7eb;padding:10px 8px;font-size:13px;color:#6b7280;text-align:left;";
+                StringBuilder table = new StringBuilder()
+                        .append("<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;font-family:Arial,sans-serif;\">")
+                        .append("<tr><th style=\"").append(head).append("\">Concepto</th><th style=\"").append(head)
+                        .append("\">Categoría</th><th style=\"").append(head).append("text-align:right;\">Importe</th></tr>");
+                StringBuilder text = new StringBuilder();
+                java.math.BigDecimal total = java.math.BigDecimal.ZERO;
                 for (ExpenseDto expenseDto : expenses) {
-                    table.append("<tr>");
-                    table.append("<td style='border:1px solid #ddd;padding:8px;'>").append(i++).append("</td>");
-                    table.append("<td style='border:1px solid #ddd;padding:8px;'>").append(HtmlUtils.htmlEscape(String.valueOf(expenseDto.getName()))).append("</td>");
-                    table.append("<td style='border:1px solid #ddd;padding:8px;'>").append(formatEuros(expenseDto.getAmount())).append("</td>");
-                    table.append("<td style='border:1px solid #ddd;padding:8px;'>").append(HtmlUtils.htmlEscape(expenseDto.getCategoryId() != null ? expenseDto.getCategoryName() : "N/A")).append("</td>");
-                    table.append("</tr>");
+                    String name = String.valueOf(expenseDto.getName());
+                    String category = expenseDto.getCategoryId() != null ? expenseDto.getCategoryName() : "-";
+                    table.append("<tr><td style=\"").append(cell).append("\">").append(HtmlUtils.htmlEscape(name)).append("</td>")
+                            .append("<td style=\"").append(cell).append("\">").append(HtmlUtils.htmlEscape(category)).append("</td>")
+                            .append("<td style=\"").append(cell).append("text-align:right;\">").append(formatEuros(expenseDto.getAmount())).append("</td></tr>");
+                    text.append("- ").append(name).append(" (").append(category).append("): ").append(formatEuros(expenseDto.getAmount())).append("\n");
+                    if (expenseDto.getAmount() != null) {
+                        total = total.add(expenseDto.getAmount());
+                    }
                 }
-                table.append("</table>");
-                String body = "Hola, " + HtmlUtils.htmlEscape(String.valueOf(profile.getFullName())) + ":<br><br>Este es el resumen de tus gastos de hoy:<br><br>"
-                        + table + "<br><br>"
-                        + "Un saludo,<br>El equipo de Money Manager";
+                table.append("<tr><td colspan=\"2\" style=\"padding:10px 8px;font-size:14px;font-weight:bold;\">Total</td>")
+                        .append("<td style=\"padding:10px 8px;font-size:14px;font-weight:bold;text-align:right;\">").append(formatEuros(total)).append("</td></tr></table>");
+                text.append("Total: ").append(formatEuros(total));
 
-                sendSafely(profile.getEmail(), "Tu resumen de gastos de hoy", body);
+                EmailContent email = EmailTemplate.builder("Tu resumen de gastos de hoy")
+                        .preheader("Hoy has gastado " + formatEuros(total))
+                        .greeting(profile.getFullName())
+                        .paragraph("Estos son los gastos que has registrado hoy:")
+                        .rawBlock(table.toString(), text.toString())
+                        .button("Ver mis gastos", frontendUrl + "/expense")
+                        .build();
+
+                sendSafely(profile.getEmail(), email);
             }
         }
         log.info("Job completed: sendDailyExpenseSummary()");
     }
 
     // Only active accounts get emails, and one failing address must not abort the whole job
-    private void sendSafely(String to, String subject, String body) {
+    // Only active accounts get emails, and one failing address must not abort the whole job
+    private void sendSafely(String to, EmailContent email) {
         try {
-            emailService.sendHtmlEmail(to, subject, body);
+            emailService.send(to, email);
         } catch (Exception e) {
-            log.error("Failed to send '{}' to {}: {}", subject, to, e.getMessage());
+            log.error("Failed to send '{}' to {}: {}", email.subject(), to, e.getMessage());
         }
     }
 

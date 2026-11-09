@@ -33,6 +33,8 @@ public class ProfileEntity {
     private LocalDateTime updatedAt;
     private Boolean isActive;
     private String activationToken;
+    /** When the activation link stops working (null for links sent before expiry existed). */
+    private LocalDateTime activationTokenExpiresAt;
     /** SHA-256 (hex) of the password reset token; the token itself is only ever in the email. */
     private String passwordResetTokenHash;
     private LocalDateTime passwordResetExpiresAt;

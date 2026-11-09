@@ -26,6 +26,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(e.getStatusCode()).body(Map.of("message", message));
     }
 
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<Map<String, Object>> handleApiException(ApiException e) {
+        return ResponseEntity.status(e.getStatus()).body(Map.of("message", e.getMessage(), "code", e.getCode()));
+    }
+
     @ExceptionHandler(CategoryInUseException.class)
     public ResponseEntity<Map<String, Object>> handleCategoryInUse(CategoryInUseException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

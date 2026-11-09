@@ -1,5 +1,7 @@
 package com.cristian.moneymanager.service;
 
+import com.cristian.moneymanager.email.EmailContent;
+import com.cristian.moneymanager.email.EmailTemplate;
 import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
@@ -9,7 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.web.util.HtmlUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -56,7 +57,7 @@ public class PasswordResetService {
             profileRepository.save(profile);
 
             try {
-                emailService.sendHtmlEmail(profile.getEmail(), "Restablece tu contraseña de Money Manager", buildEmail(profile, token));
+                emailService.send(profile.getEmail(), buildEmail(profile, token));
             } catch (RuntimeException e) {
                 log.error("Could not send password reset email to {}: {}", profile.getEmail(), e.getMessage());
             }
@@ -89,16 +90,15 @@ public class PasswordResetService {
         profileRepository.save(profile);
     }
 
-    private String buildEmail(ProfileEntity profile, String token) {
-        String link = frontendUrl + "/reset-password?token=" + token;
-        String name = HtmlUtils.htmlEscape(String.valueOf(profile.getFullName()));
-        return "Hola, " + name + ":<br><br>"
-                + "Hemos recibido una solicitud para restablecer la contraseña de tu cuenta de Money Manager.<br><br>"
-                + "<a href='" + link + "' style='display:inline-block;padding:10px 20px;background-color:#6b21a8;color:#fff;"
-                + "text-decoration:none;border-radius:6px;font-weight:bold;'>Elegir una contraseña nueva</a><br><br>"
-                + "El enlace caduca en 1 hora y solo se puede usar una vez.<br>"
-                + "Si no lo has pedido tú, ignora este email: tu contraseña no cambiará.<br><br>"
-                + "El equipo de Money Manager";
+    private EmailContent buildEmail(ProfileEntity profile, String token) {
+        return EmailTemplate.builder("Restablece tu contraseña")
+                .preheader("Elige una contraseña nueva para tu cuenta de Money Manager")
+                .greeting(profile.getFullName())
+                .paragraph("Hemos recibido una solicitud para restablecer la contraseña de tu cuenta de Money Manager.")
+                .button("Elegir una contraseña nueva", frontendUrl + "/reset-password?token=" + token)
+                .note("El enlace caduca en 1 hora y solo se puede usar una vez.")
+                .note("Si no lo has pedido tú, ignora este email: tu contraseña no cambiará.")
+                .build();
     }
 
     private static String newToken() {
