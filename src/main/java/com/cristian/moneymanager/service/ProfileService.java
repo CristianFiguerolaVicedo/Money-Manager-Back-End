@@ -5,11 +5,16 @@ import com.cristian.moneymanager.dto.ProfileDto;
 import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.repository.ProfileRepository;
 import com.cristian.moneymanager.util.JwtUtil;
+import com.cristian.moneymanager.email.EmailContent;
+import com.cristian.moneymanager.email.EmailTemplate;
+import com.cristian.moneymanager.exception.ApiException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,10 +22,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProfileService {
@@ -31,8 +38,10 @@ public class ProfileService {
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
 
-    @Value("${app.activation.url}")
-    private String activationURL;
+    private static final Duration ACTIVATION_VALIDITY = Duration.ofHours(24);
+
+    @Value("${money.manager.frontendUrl}")
+    private String frontendUrl;
 
     public ProfileDto registerProfile(ProfileDto profileDto) {
         if (profileDto.getFullName() == null || profileDto.getFullName().isBlank()) {
@@ -63,34 +72,81 @@ public class ProfileService {
             profile = existing;
         }
 
-        profile.setActivationToken(UUID.randomUUID().toString());
+        assignActivationToken(profile);
         profile = profileRepository.save(profile);
         sendActivationEmail(profile);
         return toDto(profile);
     }
 
     private void sendActivationEmail(ProfileEntity profile) {
-        String activationLink = activationURL + "/api/v1.0/activate?token=" + profile.getActivationToken();
-        String subject = "Activa tu cuenta de Money Manager";
-        String body = "Haz clic en este enlace para activar tu cuenta de Money Manager: " + activationLink;
         try {
-            emailService.sendEmail(profile.getEmail(), subject, body);
+            emailService.send(profile.getEmail(), buildActivationEmail(profile));
         } catch (RuntimeException e) {
-            // The account is saved; registering again with the same email re-sends the link.
+            // The account is saved; registering again (or "resend") sends a new link.
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "Tu cuenta se ha creado, pero no hemos podido enviar el email de activación. Vuelve a registrarte en unos minutos.", e);
+                    "Tu cuenta se ha creado, pero no hemos podido enviar el email de activación. Vuelve a intentarlo en unos minutos.", e);
         }
     }
 
-    public boolean activateProfile(String activationToken) {
-        return profileRepository.findByActivationToken(activationToken)
+    private EmailContent buildActivationEmail(ProfileEntity profile) {
+        String link = frontendUrl + "/activate?token=" + profile.getActivationToken();
+        return EmailTemplate.builder("Activa tu cuenta de Money Manager")
+                .preheader("Confirma tu email para empezar a usar Money Manager")
+                .greeting(profile.getFullName())
+                .paragraph("Gracias por registrarte en Money Manager. Solo falta un paso: confirma que este email es tuyo para activar tu cuenta.")
+                .button("Activar mi cuenta", link)
+                .note("El enlace caduca en " + ACTIVATION_VALIDITY.toHours() + " horas y solo se puede usar una vez.")
+                .note("Si no has creado esta cuenta, ignora este email.")
+                .build();
+    }
+
+    /** Gives the profile a fresh single-use activation token. */
+    private void assignActivationToken(ProfileEntity profile) {
+        profile.setActivationToken(UUID.randomUUID().toString());
+        profile.setActivationTokenExpiresAt(LocalDateTime.now().plus(ACTIVATION_VALIDITY));
+    }
+
+    public enum ActivationResult { ACTIVATED, EXPIRED, INVALID }
+
+    public ActivationResult activateProfile(String activationToken) {
+        if (activationToken == null || activationToken.isBlank()) {
+            return ActivationResult.INVALID;
+        }
+        return profileRepository.findByActivationToken(activationToken.trim())
                 .map(profile -> {
+                    LocalDateTime expiresAt = profile.getActivationTokenExpiresAt();
+                    if (expiresAt != null && expiresAt.isBefore(LocalDateTime.now())) {
+                        return ActivationResult.EXPIRED;
+                    }
                     profile.setIsActive(true);
                     profile.setActivationToken(null); // single-use token
+                    profile.setActivationTokenExpiresAt(null);
                     profileRepository.save(profile);
-                    return true;
+                    return ActivationResult.ACTIVATED;
                 })
-                .orElse(false);
+                .orElse(ActivationResult.INVALID);
+    }
+
+    /**
+     * Sends a new activation link to an existing, not yet activated account.
+     * Does nothing otherwise, and the caller always answers the same, so it cannot be used
+     * to find out which emails are registered.
+     */
+    public void resendActivation(String email) {
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El email es obligatorio");
+        }
+        profileRepository.findByEmail(email.trim())
+                .filter(profile -> !Boolean.TRUE.equals(profile.getIsActive()))
+                .ifPresent(profile -> {
+                    assignActivationToken(profile);
+                    profileRepository.save(profile);
+                    try {
+                        emailService.send(profile.getEmail(), buildActivationEmail(profile));
+                    } catch (RuntimeException e) {
+                        log.error("Could not resend activation email to {}: {}", profile.getEmail(), e.getMessage());
+                    }
+                });
     }
 
     public boolean isAccountActive(String email) {
@@ -148,16 +204,27 @@ public class ProfileService {
                 .build();
     }
 
+    /**
+     * Checks the password first and only then whether the account is active, so the
+     * "not activated" answer is never given for a wrong password or an unknown email.
+     */
     public Map<String, Object> authenticateAndGenerateToken(AuthDto authDto) {
+        String email = authDto.getEmail() == null ? "" : authDto.getEmail().trim();
         try {
-            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(authDto.getEmail(), authDto.getPassword()));
-            String token = jwtUtil.generateToken(authDto.getEmail());
-            return Map.of(
-                    "token", token,
-                    "user", getPublicProfile(authDto.getEmail())
-            );
-        } catch (Exception e) {
-            throw new RuntimeException("Email o contraseña incorrectos");
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, authDto.getPassword()));
+        } catch (AuthenticationException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email o contraseña incorrectos");
         }
+
+        if (!isAccountActive(email)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_NOT_ACTIVE",
+                    "Tu cuenta no está activada. Revisa tu email o pide un enlace nuevo.");
+        }
+
+        String token = jwtUtil.generateToken(email);
+        return Map.of(
+                "token", token,
+                "user", getPublicProfile(email)
+        );
     }
 }

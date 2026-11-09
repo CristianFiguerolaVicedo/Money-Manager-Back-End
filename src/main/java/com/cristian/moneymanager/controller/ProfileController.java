@@ -25,34 +25,29 @@ public class ProfileController {
         return ResponseEntity.status(HttpStatus.CREATED).body(registeredProfile);
     }
 
+    /** Called by the front-end /activate page with the token from the email. */
     @GetMapping(path = "/activate")
-    public ResponseEntity<String> activateProfile(@RequestParam String token) {
-        boolean isActivated = profileService.activateProfile(token);
-        if (isActivated) {
-            return ResponseEntity.ok("Cuenta activada correctamente. Ya puedes iniciar sesión.");
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("El enlace de activación no es válido o ya se ha usado");
-        }
+    public ResponseEntity<Map<String, Object>> activateProfile(@RequestParam(required = false) String token) {
+        return switch (profileService.activateProfile(token)) {
+            case ACTIVATED -> ResponseEntity.ok(Map.of("message", "¡Cuenta activada! Ya puedes iniciar sesión."));
+            case EXPIRED -> ResponseEntity.status(HttpStatus.GONE).body(Map.of("code", "ACTIVATION_EXPIRED",
+                    "message", "El enlace de activación ha caducado. Pide uno nuevo."));
+            case INVALID -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("code", "ACTIVATION_INVALID",
+                    "message", "El enlace de activación no es válido o ya se ha usado."));
+        };
     }
 
     @PostMapping(path = "/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody AuthDto authDto) {
-        try {
-            if (!profileService.isAccountActive(authDto.getEmail())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of(
-                                "message", "Tu cuenta no está activada. Revisa tu email y usa el enlace de activación."
-                        ));
-            }
+        return ResponseEntity.ok(profileService.authenticateAndGenerateToken(authDto));
+    }
 
-            Map<String, Object> response = profileService.authenticateAndGenerateToken(authDto);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of(
-                            "message", e.getMessage()
-                    ));
-        }
+    /** Always answers the same, whether or not the email exists or is already active. */
+    @PostMapping(path = "/resend-activation")
+    public ResponseEntity<Map<String, Object>> resendActivation(@RequestBody PasswordResetDto dto) {
+        profileService.resendActivation(dto.getEmail());
+        return ResponseEntity.ok(Map.of("message",
+                "Si tu cuenta está pendiente de activar, te hemos enviado un enlace nuevo."));
     }
 
     /** Always answers the same, whether or not the email exists. */

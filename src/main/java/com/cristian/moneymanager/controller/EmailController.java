@@ -1,5 +1,7 @@
 package com.cristian.moneymanager.controller;
 
+import com.cristian.moneymanager.email.EmailContent;
+import com.cristian.moneymanager.email.EmailTemplate;
 import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.service.*;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,8 @@ import com.cristian.moneymanager.util.MonthParam;
 
 import java.io.IOException;
 import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 @RestController
 @RequiredArgsConstructor
@@ -31,8 +35,12 @@ public class EmailController {
         ProfileEntity profile = profileService.getCurrentProfile();
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         excelService.writeIncomesToExcel(baos, incomeService.getIncomesForMonth(target));
-        emailService.sendEmailWithAttachment(profile.getEmail(), "Informe de ingresos (" + target + ")",
-                "Te adjuntamos tu informe de ingresos de " + target + ".", baos.toByteArray(), "income-" + target + ".xlsx");
+        EmailContent email = EmailTemplate.builder("Tu informe de ingresos de " + monthName(target))
+                .preheader("Te adjuntamos el Excel con tus ingresos")
+                .greeting(profile.getFullName())
+                .paragraph("Te adjuntamos en Excel tus ingresos de " + monthName(target) + ".")
+                .build();
+        emailService.sendWithAttachment(profile.getEmail(), email, baos.toByteArray(), "ingresos-" + target + ".xlsx");
         return ResponseEntity.ok(null);
     }
 
@@ -42,8 +50,17 @@ public class EmailController {
         ProfileEntity profile = profileService.getCurrentProfile();
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         excelService.writeExpensesToExcel(baos, expenseService.getExpensesForMonth(target));
-        emailService.sendEmailWithAttachment(profile.getEmail(), "Informe de gastos (" + target + ")",
-                "Te adjuntamos tu informe de gastos de " + target + ".", baos.toByteArray(), "expense-" + target + ".xlsx");
+        EmailContent email = EmailTemplate.builder("Tu informe de gastos de " + monthName(target))
+                .preheader("Te adjuntamos el Excel con tus gastos")
+                .greeting(profile.getFullName())
+                .paragraph("Te adjuntamos en Excel tus gastos de " + monthName(target) + ".")
+                .build();
+        emailService.sendWithAttachment(profile.getEmail(), email, baos.toByteArray(), "gastos-" + target + ".xlsx");
         return ResponseEntity.ok(null);
+    }
+
+    /** 2026-10 -> "octubre de 2026" */
+    private static String monthName(YearMonth month) {
+        return month.format(DateTimeFormatter.ofPattern("MMMM 'de' yyyy", Locale.of("es", "ES")));
     }
 }

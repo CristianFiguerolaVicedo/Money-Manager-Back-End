@@ -1,5 +1,6 @@
 package com.cristian.moneymanager.service;
 
+import com.cristian.moneymanager.email.EmailContent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -51,21 +52,18 @@ public class EmailService {
         this.senderName = senderName;
     }
 
-    public void sendEmail(String to, String subject, String body) {
-        Map<String, Object> payload = basePayload(to, subject);
-        payload.put("textContent", body);
+    /** Sends an email built with {@link com.cristian.moneymanager.email.EmailTemplate} (HTML + plain text). */
+    public void send(String to, EmailContent content) {
+        Map<String, Object> payload = basePayload(to, content.subject());
+        payload.put("htmlContent", content.html());
+        payload.put("textContent", content.text());
         send(payload);
     }
 
-    public void sendHtmlEmail(String to, String subject, String htmlBody) {
-        Map<String, Object> payload = basePayload(to, subject);
-        payload.put("htmlContent", htmlBody);
-        send(payload);
-    }
-
-    public void sendEmailWithAttachment(String to, String subject, String body, byte[] attachment, String filename) {
-        Map<String, Object> payload = basePayload(to, subject);
-        payload.put("textContent", body);
+    public void sendWithAttachment(String to, EmailContent content, byte[] attachment, String filename) {
+        Map<String, Object> payload = basePayload(to, content.subject());
+        payload.put("htmlContent", content.html());
+        payload.put("textContent", content.text());
         payload.put("attachment", List.of(Map.of(
                 "name", filename,
                 "content", Base64.getEncoder().encodeToString(attachment)
