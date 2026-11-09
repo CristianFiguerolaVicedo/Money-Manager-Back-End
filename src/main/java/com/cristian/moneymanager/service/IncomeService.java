@@ -7,6 +7,7 @@ import com.cristian.moneymanager.entity.ExpenseEntity;
 import com.cristian.moneymanager.entity.IncomeEntity;
 import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.repository.CategoryRepository;
+import com.cristian.moneymanager.util.MonthParam;
 import com.cristian.moneymanager.repository.IncomeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -16,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 
 @Service
@@ -29,12 +31,7 @@ public class IncomeService {
     public IncomeDto addIncome(IncomeDto dto) {
         ProfileEntity profile = profileService.getCurrentProfile();
         validate(dto);
-        CategoryEntity category = categoryRepository.findByIdAndProfileId(dto.getCategoryId(), profile.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
-
-        if (!"income".equalsIgnoreCase(category.getType())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The selected category is not an income category");
-        }
+        CategoryEntity category = findIncomeCategory(dto.getCategoryId(), profile);
 
         IncomeEntity newIncome = toEntity(dto, profile, category);
         newIncome = incomeRepository.save(newIncome);
@@ -43,16 +40,41 @@ public class IncomeService {
     }
 
     public List<IncomeDto> getCurrentMonthIncomesForCurrentUser() {
-        ProfileEntity profile = profileService.getCurrentProfile();
-        LocalDate now = LocalDate.now();
-        LocalDate startDate = now.withDayOfMonth(1);
-        LocalDate endDate = now.withDayOfMonth(now.lengthOfMonth());
+        return getIncomesForMonth(YearMonth.now(MonthParam.APP_ZONE));
+    }
 
-        List<IncomeEntity> list = incomeRepository.findByProfileIdAndDateBetween(profile.getId(), startDate, endDate);
+    /** Incomes of the current user in the given month, newest first. */
+    public List<IncomeDto> getIncomesForMonth(YearMonth month) {
+        ProfileEntity profile = profileService.getCurrentProfile();
+        List<IncomeEntity> list = incomeRepository.findByProfileIdAndDateBetweenOrderByDateDescIdDesc(
+                profile.getId(), month.atDay(1), month.atEndOfMonth());
 
         return list.stream()
                 .map(this::toDto)
                 .toList();
+    }
+
+    public IncomeDto updateIncome(Long id, IncomeDto dto) {
+        ProfileEntity profile = profileService.getCurrentProfile();
+        IncomeEntity entity = incomeRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Income not found"));
+
+        if (!entity.getProfile().getId().equals(profile.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized to update this income");
+        }
+
+        validate(dto);
+        CategoryEntity category = findIncomeCategory(dto.getCategoryId(), profile);
+
+        entity.setName(dto.getName().trim());
+        entity.setIcon(dto.getIcon());
+        entity.setAmount(dto.getAmount());
+        if (dto.getDate() != null) {
+            entity.setDate(dto.getDate());
+        }
+        entity.setCategory(category);
+
+        return toDto(incomeRepository.save(entity));
     }
 
     public void deleteIncome(Long id) {
@@ -95,6 +117,17 @@ public class IncomeService {
     }
 
     //////////////////////////////// Helper Methods
+
+    /** The category must belong to the current user and be an income category. */
+    private CategoryEntity findIncomeCategory(Long categoryId, ProfileEntity profile) {
+        CategoryEntity category = categoryRepository.findByIdAndProfileId(categoryId, profile.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
+
+        if (!"income".equalsIgnoreCase(category.getType())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The selected category is not an income category");
+        }
+        return category;
+    }
 
     private void validate(IncomeDto dto) {
         if (dto.getName() == null || dto.getName().isBlank()) {

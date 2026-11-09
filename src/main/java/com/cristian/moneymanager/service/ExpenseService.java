@@ -5,6 +5,7 @@ import com.cristian.moneymanager.entity.CategoryEntity;
 import com.cristian.moneymanager.entity.ExpenseEntity;
 import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.repository.CategoryRepository;
+import com.cristian.moneymanager.util.MonthParam;
 import com.cristian.moneymanager.repository.ExpenseRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -14,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,12 +30,7 @@ public class ExpenseService {
     public ExpenseDto addExpense(ExpenseDto dto) {
         ProfileEntity profile = profileService.getCurrentProfile();
         validate(dto);
-        CategoryEntity category = categoryRepository.findByIdAndProfileId(dto.getCategoryId(), profile.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
-
-        if (!"expense".equalsIgnoreCase(category.getType())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The selected category is not an expense category");
-        }
+        CategoryEntity category = findExpenseCategory(dto.getCategoryId(), profile);
 
         ExpenseEntity newExpense = toEntity(dto, profile, category);
         newExpense = expenseRepository.save(newExpense);
@@ -42,16 +39,41 @@ public class ExpenseService {
     }
 
     public List<ExpenseDto> getCurrentMonthExpensesForCurrentUser() {
-        ProfileEntity profile = profileService.getCurrentProfile();
-        LocalDate now = LocalDate.now();
-        LocalDate startDate = now.withDayOfMonth(1);
-        LocalDate endDate = now.withDayOfMonth(now.lengthOfMonth());
+        return getExpensesForMonth(YearMonth.now(MonthParam.APP_ZONE));
+    }
 
-        List<ExpenseEntity> list = expenseRepository.findByProfileIdAndDateBetween(profile.getId(), startDate, endDate);
+    /** Expenses of the current user in the given month, newest first. */
+    public List<ExpenseDto> getExpensesForMonth(YearMonth month) {
+        ProfileEntity profile = profileService.getCurrentProfile();
+        List<ExpenseEntity> list = expenseRepository.findByProfileIdAndDateBetweenOrderByDateDescIdDesc(
+                profile.getId(), month.atDay(1), month.atEndOfMonth());
 
         return list.stream()
                 .map(this::toDto)
                 .toList();
+    }
+
+    public ExpenseDto updateExpense(Long id, ExpenseDto dto) {
+        ProfileEntity profile = profileService.getCurrentProfile();
+        ExpenseEntity entity = expenseRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found"));
+
+        if (!entity.getProfile().getId().equals(profile.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized to update this expense");
+        }
+
+        validate(dto);
+        CategoryEntity category = findExpenseCategory(dto.getCategoryId(), profile);
+
+        entity.setName(dto.getName().trim());
+        entity.setIcon(dto.getIcon());
+        entity.setAmount(dto.getAmount());
+        if (dto.getDate() != null) {
+            entity.setDate(dto.getDate());
+        }
+        entity.setCategory(category);
+
+        return toDto(expenseRepository.save(entity));
     }
 
     public void deleteExpense(Long id) {
@@ -103,6 +125,17 @@ public class ExpenseService {
     }
 
     //////////////////////////////// Helper Methods
+
+    /** The category must belong to the current user and be an expense category. */
+    private CategoryEntity findExpenseCategory(Long categoryId, ProfileEntity profile) {
+        CategoryEntity category = categoryRepository.findByIdAndProfileId(categoryId, profile.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
+
+        if (!"expense".equalsIgnoreCase(category.getType())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The selected category is not an expense category");
+        }
+        return category;
+    }
 
     private void validate(ExpenseDto dto) {
         if (dto.getName() == null || dto.getName().isBlank()) {
