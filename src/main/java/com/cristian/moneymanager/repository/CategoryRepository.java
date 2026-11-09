@@ -13,4 +13,7 @@ public interface CategoryRepository extends JpaRepository<CategoryEntity, Long> 
     List<CategoryEntity> findByTypeIgnoreCaseAndProfileId(String type, Long profileId);
     boolean existsByNameIgnoreCaseAndProfileId(String name, Long profileId);
     boolean existsByNameIgnoreCaseAndProfileIdAndIdNot(String name, Long profileId, Long id);
+
+    /** Removes all rows of a user (account deletion). */
+    void deleteByProfileId(Long profileId);
 }
