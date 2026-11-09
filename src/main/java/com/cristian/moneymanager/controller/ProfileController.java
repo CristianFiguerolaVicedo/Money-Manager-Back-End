@@ -1,8 +1,10 @@
 package com.cristian.moneymanager.controller;
 
+import com.cristian.moneymanager.dto.AccountDtos;
 import com.cristian.moneymanager.dto.AuthDto;
 import com.cristian.moneymanager.dto.PasswordResetDto;
 import com.cristian.moneymanager.dto.ProfileDto;
+import com.cristian.moneymanager.service.AccountService;
 import com.cristian.moneymanager.service.PasswordResetService;
 import com.cristian.moneymanager.service.ProfileService;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ public class ProfileController {
 
     private final ProfileService profileService;
     private final PasswordResetService passwordResetService;
+    private final AccountService accountService;
 
     @PostMapping(path = "/register")
     public ResponseEntity<ProfileDto> registerProfile(@RequestBody ProfileDto profileDto) {
@@ -74,5 +77,22 @@ public class ProfileController {
     public ResponseEntity<ProfileDto> getPublicProfile() {
         ProfileDto profileDto = profileService.getPublicProfile(null);
         return ResponseEntity.ok(profileDto);
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<ProfileDto> updateProfile(@RequestBody AccountDtos.UpdateProfileRequest request) {
+        return ResponseEntity.ok(accountService.updateProfile(request));
+    }
+
+    @PutMapping("/profile/password")
+    public ResponseEntity<Map<String, Object>> changePassword(@RequestBody AccountDtos.ChangePasswordRequest request) {
+        accountService.changePassword(request);
+        return ResponseEntity.ok(Map.of("message", "Contraseña actualizada"));
+    }
+
+    @DeleteMapping("/profile")
+    public ResponseEntity<Void> deleteAccount(@RequestBody(required = false) AccountDtos.DeleteAccountRequest request) {
+        accountService.deleteAccount(request);
+        return ResponseEntity.noContent().build();
     }
 }

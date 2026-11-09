@@ -32,4 +32,7 @@ public interface ExpenseRepository extends JpaRepository<ExpenseEntity, Long> {
     @Modifying
     @Query("UPDATE ExpenseEntity t SET t.category = :target WHERE t.category.id = :sourceId")
     int reassignCategory(@Param("sourceId") Long sourceId, @Param("target") CategoryEntity target);
+
+    /** Removes all rows of a user (account deletion). */
+    void deleteByProfileId(Long profileId);
 }
