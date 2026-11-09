@@ -31,8 +31,8 @@ public class EmailController {
         ProfileEntity profile = profileService.getCurrentProfile();
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         excelService.writeIncomesToExcel(baos, incomeService.getIncomesForMonth(target));
-        emailService.sendEmailWithAttachment(profile.getEmail(), "Monthly income report (" + target + ")",
-                "Please find attached your income report for " + target + ".", baos.toByteArray(), "income-" + target + ".xlsx");
+        emailService.sendEmailWithAttachment(profile.getEmail(), "Informe de ingresos (" + target + ")",
+                "Te adjuntamos tu informe de ingresos de " + target + ".", baos.toByteArray(), "income-" + target + ".xlsx");
         return ResponseEntity.ok(null);
     }
 
@@ -42,8 +42,8 @@ public class EmailController {
         ProfileEntity profile = profileService.getCurrentProfile();
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         excelService.writeExpensesToExcel(baos, expenseService.getExpensesForMonth(target));
-        emailService.sendEmailWithAttachment(profile.getEmail(), "Monthly expense report (" + target + ")",
-                "Please find attached your expense report for " + target + ".", baos.toByteArray(), "expense-" + target + ".xlsx");
+        emailService.sendEmailWithAttachment(profile.getEmail(), "Informe de gastos (" + target + ")",
+                "Te adjuntamos tu informe de gastos de " + target + ".", baos.toByteArray(), "expense-" + target + ".xlsx");
         return ResponseEntity.ok(null);
     }
 }

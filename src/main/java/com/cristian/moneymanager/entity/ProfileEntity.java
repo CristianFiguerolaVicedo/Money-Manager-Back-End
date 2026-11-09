@@ -33,6 +33,9 @@ public class ProfileEntity {
     private LocalDateTime updatedAt;
     private Boolean isActive;
     private String activationToken;
+    /** SHA-256 (hex) of the password reset token; the token itself is only ever in the email. */
+    private String passwordResetTokenHash;
+    private LocalDateTime passwordResetExpiresAt;
 
     @PrePersist
     public void prePersist() {

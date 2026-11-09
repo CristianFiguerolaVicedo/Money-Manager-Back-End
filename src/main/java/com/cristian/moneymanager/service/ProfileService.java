@@ -36,13 +36,13 @@ public class ProfileService {
 
     public ProfileDto registerProfile(ProfileDto profileDto) {
         if (profileDto.getFullName() == null || profileDto.getFullName().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Full name is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre completo es obligatorio");
         }
         if (profileDto.getEmail() == null || profileDto.getEmail().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El email es obligatorio");
         }
         if (profileDto.getPassword() == null || profileDto.getPassword().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La contraseña es obligatoria");
         }
         profileDto.setEmail(profileDto.getEmail().trim());
         profileDto.setId(null); // never let the client choose (or overwrite) an id
@@ -52,7 +52,7 @@ public class ProfileService {
         if (existing == null) {
             profile = toEntity(profileDto);
         } else if (Boolean.TRUE.equals(existing.getIsActive())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "An account with this email already exists");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una cuenta con este email");
         } else {
             // Registered before but never activated (e.g. the activation email was lost):
             // refresh the details and send a new activation link instead of blocking the email forever.
@@ -71,14 +71,14 @@ public class ProfileService {
 
     private void sendActivationEmail(ProfileEntity profile) {
         String activationLink = activationURL + "/api/v1.0/activate?token=" + profile.getActivationToken();
-        String subject = "Activate your Money Manager account";
-        String body = "Click on the following link to activate your account: " + activationLink;
+        String subject = "Activa tu cuenta de Money Manager";
+        String body = "Haz clic en este enlace para activar tu cuenta de Money Manager: " + activationLink;
         try {
             emailService.sendEmail(profile.getEmail(), subject, body);
         } catch (RuntimeException e) {
             // The account is saved; registering again with the same email re-sends the link.
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "Your account was created but the activation email could not be sent. Please try registering again in a few minutes.", e);
+                    "Tu cuenta se ha creado, pero no hemos podido enviar el email de activación. Vuelve a registrarte en unos minutos.", e);
         }
     }
 
@@ -157,7 +157,7 @@ public class ProfileService {
                     "user", getPublicProfile(authDto.getEmail())
             );
         } catch (Exception e) {
-            throw new RuntimeException("Invalid email or password");
+            throw new RuntimeException("Email o contraseña incorrectos");
         }
     }
 }

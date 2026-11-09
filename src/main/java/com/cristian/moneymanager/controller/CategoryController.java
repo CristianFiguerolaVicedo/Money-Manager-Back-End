@@ -40,4 +40,11 @@ public class CategoryController {
         CategoryDto updatedCategory = categoryService.updateCategory(id, categoryDto);
         return ResponseEntity.ok(updatedCategory);
     }
+
+    /** Deletes a category; ?reassignTo={id} moves its incomes/expenses there first. */
+    @DeleteMapping(path = "/{id}")
+    public ResponseEntity<Void> deleteCategory(@PathVariable Long id, @RequestParam(required = false) Long reassignTo) {
+        categoryService.deleteCategory(id, reassignTo);
+        return ResponseEntity.noContent().build();
+    }
 }

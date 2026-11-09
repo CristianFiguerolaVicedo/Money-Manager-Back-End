@@ -42,7 +42,7 @@ public class FilterController {
         // Allow one extra day because the client's local date may be ahead of the server (UTC)
         LocalDate endDate = filterDto.getEndDate() != null ? filterDto.getEndDate() : LocalDate.now().plusDays(1);
         if (startDate.isAfter(endDate)) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Start date must be before end date"));
+            return ResponseEntity.badRequest().body(Map.of("message", "La fecha de inicio debe ser anterior a la de fin"));
         }
         String keyword = filterDto.getKeyword() != null ? filterDto.getKeyword().trim() : "";
         String sortField = SORT_FIELDS.getOrDefault(
@@ -57,7 +57,7 @@ public class FilterController {
             List<ExpenseDto> expenses = expenseService.filterExpenses(startDate, endDate, keyword, sort);
             return ResponseEntity.ok(expenses);
         } else {
-            return ResponseEntity.badRequest().body(Map.of("message", "Invalid type, must be 'income' or 'expense'"));
+            return ResponseEntity.badRequest().body(Map.of("message", "Tipo no válido, debe ser 'income' o 'expense'"));
         }
     }
 }

@@ -26,14 +26,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(e.getStatusCode()).body(Map.of("message", message));
     }
 
+    @ExceptionHandler(CategoryInUseException.class)
+    public ResponseEntity<Map<String, Object>> handleCategoryInUse(CategoryInUseException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", e.getMessage(), "transactionCount", e.getTransactionCount()));
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<Map<String, Object>> handleUnreadable(HttpMessageNotReadableException e) {
-        return ResponseEntity.badRequest().body(Map.of("message", "Malformed request body"));
+        return ResponseEntity.badRequest().body(Map.of("message", "La petición no tiene un formato válido"));
     }
 
     @ExceptionHandler(TypeMismatchException.class)
     public ResponseEntity<Map<String, Object>> handleTypeMismatch(TypeMismatchException e) {
-        return ResponseEntity.badRequest().body(Map.of("message", "Invalid value for '" + e.getPropertyName() + "'"));
+        return ResponseEntity.badRequest().body(Map.of("message", "Valor no válido para '" + e.getPropertyName() + "'"));
     }
 
     @ExceptionHandler(Exception.class)
@@ -46,6 +52,6 @@ public class GlobalExceptionHandler {
         }
         log.error("Unhandled error", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("message", "Something went wrong. Please try again later."));
+                .body(Map.of("message", "Algo ha ido mal. Inténtalo de nuevo más tarde."));
     }
 }

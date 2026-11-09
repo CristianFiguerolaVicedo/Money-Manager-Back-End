@@ -32,12 +32,12 @@ public class NotificationService {
         log.info("Job started: sendDailyIncomeExpenseReminder()");
         List<ProfileEntity> profiles = profileRepository.findByIsActiveTrue();
         for (ProfileEntity profile : profiles) {
-            String body = "Hi " + HtmlUtils.htmlEscape(String.valueOf(profile.getFullName())) + ",<br><br>"
-                    + "This is a friendly reminder to add your incomes and expenses for today in Money Manager.<br><br>"
-                    + "<a href='" + frontendUrl + "' style='display:inline-block;padding:10px 20px;background-color:#4CAF50;color:#fff;text-decoration:none;border-radius:5px;font-weight:bold;'>Go to Money Manager</a>"
-                    + "<br><br>Best regards, <br>Money Manager Team";
+            String body = "Hola, " + HtmlUtils.htmlEscape(String.valueOf(profile.getFullName())) + ":<br><br>"
+                    + "Te recordamos que añadas tus ingresos y gastos de hoy en Money Manager.<br><br>"
+                    + "<a href='" + frontendUrl + "' style='display:inline-block;padding:10px 20px;background-color:#4CAF50;color:#fff;text-decoration:none;border-radius:5px;font-weight:bold;'>Ir a Money Manager</a>"
+                    + "<br><br>Un saludo,<br>El equipo de Money Manager";
 
-            sendSafely(profile.getEmail(), "Daily reminder: Add your income and expenses", body);
+            sendSafely(profile.getEmail(), "Recordatorio: añade tus ingresos y gastos de hoy", body);
         }
         log.info("Job completed: sendDailyIncomeExpenseReminder()");
     }
@@ -52,7 +52,7 @@ public class NotificationService {
             if (!expenses.isEmpty()) {
                 StringBuilder table = new StringBuilder();
                 table.append("<table style='border-collapse:collapse;width:100%;'>");
-                table.append("<tr style='background-color:#f2f2f2;'><th style='border:1px solid #ddd;padding:8px;'>S.No</th><th style='border:1px solid #ddd;padding:8px;'>Name</th><th style='border:1px solid #ddd;padding:8px;'>Amount</th><th style='border:1px solid #ddd;padding:8px;'>Category</th></tr>");
+                table.append("<tr style='background-color:#f2f2f2;'><th style='border:1px solid #ddd;padding:8px;'>Nº</th><th style='border:1px solid #ddd;padding:8px;'>Nombre</th><th style='border:1px solid #ddd;padding:8px;'>Importe</th><th style='border:1px solid #ddd;padding:8px;'>Categoría</th></tr>");
                 int i = 1;
                 for (ExpenseDto expenseDto : expenses) {
                     table.append("<tr>");
@@ -63,11 +63,11 @@ public class NotificationService {
                     table.append("</tr>");
                 }
                 table.append("</table>");
-                String body = "Hi " + HtmlUtils.htmlEscape(String.valueOf(profile.getFullName())) + ",<br><br> Here is a summary of your today's expenses: <br><br>"
+                String body = "Hola, " + HtmlUtils.htmlEscape(String.valueOf(profile.getFullName())) + ":<br><br>Este es el resumen de tus gastos de hoy:<br><br>"
                         + table + "<br><br>"
-                        + "Best regards <br><br> Money Manager Team";
+                        + "Un saludo,<br>El equipo de Money Manager";
 
-                sendSafely(profile.getEmail(), "Your daily expense summary", body);
+                sendSafely(profile.getEmail(), "Tu resumen de gastos de hoy", body);
             }
         }
         log.info("Job completed: sendDailyExpenseSummary()");

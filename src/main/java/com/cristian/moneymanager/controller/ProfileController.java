@@ -1,7 +1,9 @@
 package com.cristian.moneymanager.controller;
 
 import com.cristian.moneymanager.dto.AuthDto;
+import com.cristian.moneymanager.dto.PasswordResetDto;
 import com.cristian.moneymanager.dto.ProfileDto;
+import com.cristian.moneymanager.service.PasswordResetService;
 import com.cristian.moneymanager.service.ProfileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -15,6 +17,7 @@ import java.util.Map;
 public class ProfileController {
 
     private final ProfileService profileService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping(path = "/register")
     public ResponseEntity<ProfileDto> registerProfile(@RequestBody ProfileDto profileDto) {
@@ -26,9 +29,9 @@ public class ProfileController {
     public ResponseEntity<String> activateProfile(@RequestParam String token) {
         boolean isActivated = profileService.activateProfile(token);
         if (isActivated) {
-            return ResponseEntity.ok("Profile activated successfully");
+            return ResponseEntity.ok("Cuenta activada correctamente. Ya puedes iniciar sesión.");
         } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Activation token not found or already used");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("El enlace de activación no es válido o ya se ha usado");
         }
     }
 
@@ -38,7 +41,7 @@ public class ProfileController {
             if (!profileService.isAccountActive(authDto.getEmail())) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body(Map.of(
-                                "message", "Account is not active. Please activate your account."
+                                "message", "Tu cuenta no está activada. Revisa tu email y usa el enlace de activación."
                         ));
             }
 
@@ -50,6 +53,20 @@ public class ProfileController {
                             "message", e.getMessage()
                     ));
         }
+    }
+
+    /** Always answers the same, whether or not the email exists. */
+    @PostMapping(path = "/forgot-password")
+    public ResponseEntity<Map<String, Object>> forgotPassword(@RequestBody PasswordResetDto dto) {
+        passwordResetService.requestReset(dto.getEmail());
+        return ResponseEntity.ok(Map.of("message",
+                "Si existe una cuenta con ese email, te hemos enviado un enlace para restablecer la contraseña."));
+    }
+
+    @PostMapping(path = "/reset-password")
+    public ResponseEntity<Map<String, Object>> resetPassword(@RequestBody PasswordResetDto dto) {
+        passwordResetService.resetPassword(dto.getToken(), dto.getPassword());
+        return ResponseEntity.ok(Map.of("message", "Contraseña actualizada. Ya puedes iniciar sesión."));
     }
 
     @GetMapping("/profile")

@@ -15,16 +15,16 @@ import java.util.List;
 @Service
 public class ExcelService {
 
-    private static final String[] HEADERS = {"S.No", "Name", "Category", "Amount", "Date"};
+    private static final String[] HEADERS = {"Nº", "Nombre", "Categoría", "Importe", "Fecha"};
 
     public void writeIncomesToExcel(OutputStream os, List<IncomeDto> incomes) throws IOException {
-        writeRows(os, "Incomes", incomes.stream()
+        writeRows(os, "Ingresos", incomes.stream()
                 .map(i -> new RowData(i.getName(), i.getCategoryId() != null ? i.getCategoryName() : null, i.getAmount(), i.getDate()))
                 .toList());
     }
 
     public void writeExpensesToExcel(OutputStream os, List<ExpenseDto> expenses) throws IOException {
-        writeRows(os, "Expenses", expenses.stream()
+        writeRows(os, "Gastos", expenses.stream()
                 .map(e -> new RowData(e.getName(), e.getCategoryId() != null ? e.getCategoryName() : null, e.getAmount(), e.getDate()))
                 .toList());
     }
