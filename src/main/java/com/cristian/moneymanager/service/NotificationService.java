@@ -58,7 +58,7 @@ public class NotificationService {
                     table.append("<tr>");
                     table.append("<td style='border:1px solid #ddd;padding:8px;'>").append(i++).append("</td>");
                     table.append("<td style='border:1px solid #ddd;padding:8px;'>").append(HtmlUtils.htmlEscape(String.valueOf(expenseDto.getName()))).append("</td>");
-                    table.append("<td style='border:1px solid #ddd;padding:8px;'>").append(expenseDto.getAmount()).append("</td>");
+                    table.append("<td style='border:1px solid #ddd;padding:8px;'>").append(formatEuros(expenseDto.getAmount())).append("</td>");
                     table.append("<td style='border:1px solid #ddd;padding:8px;'>").append(HtmlUtils.htmlEscape(expenseDto.getCategoryId() != null ? expenseDto.getCategoryName() : "N/A")).append("</td>");
                     table.append("</tr>");
                 }
@@ -80,5 +80,13 @@ public class NotificationService {
         } catch (Exception e) {
             log.error("Failed to send '{}' to {}: {}", subject, to, e.getMessage());
         }
+    }
+
+    private static String formatEuros(java.math.BigDecimal amount) {
+        if (amount == null) {
+            return "-";
+        }
+        java.text.NumberFormat euros = java.text.NumberFormat.getCurrencyInstance(java.util.Locale.of("es", "ES"));
+        return euros.format(amount);
     }
 }

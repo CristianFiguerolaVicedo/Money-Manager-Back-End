@@ -2,6 +2,7 @@ package com.cristian.moneymanager.controller;
 
 import com.cristian.moneymanager.dto.IncomeDto;
 import com.cristian.moneymanager.service.IncomeService;
+import com.cristian.moneymanager.util.MonthParam;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,10 +24,16 @@ public class IncomeController {
                 .body(savedIncome);
     }
 
+    /** Incomes of one month; ?month=yyyy-MM, defaults to the current month. */
     @GetMapping
-    public ResponseEntity<List<IncomeDto>> getExpenses() {
-        List<IncomeDto> incomes = incomeService.getCurrentMonthIncomesForCurrentUser();
-        return ResponseEntity.ok(incomes);
+    public ResponseEntity<List<IncomeDto>> getIncomes(@RequestParam(required = false) String month) {
+        List<IncomeDto> list = incomeService.getIncomesForMonth(MonthParam.parseOrCurrent(month));
+        return ResponseEntity.ok(list);
+    }
+
+    @PutMapping(path = "/{id}")
+    public ResponseEntity<IncomeDto> updateIncome(@PathVariable Long id, @RequestBody IncomeDto dto) {
+        return ResponseEntity.ok(incomeService.updateIncome(id, dto));
     }
 
     @DeleteMapping(path = "/{id}")
