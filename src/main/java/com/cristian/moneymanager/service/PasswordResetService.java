@@ -4,6 +4,8 @@ import com.cristian.moneymanager.email.EmailContent;
 import com.cristian.moneymanager.email.EmailTemplate;
 import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.repository.ProfileRepository;
+import com.cristian.moneymanager.security.RateLimiter;
+import com.cristian.moneymanager.util.InputRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,13 +32,13 @@ import java.util.HexFormat;
 @RequiredArgsConstructor
 public class PasswordResetService {
 
-    public static final int MIN_PASSWORD_LENGTH = 8;
     private static final Duration TOKEN_VALIDITY = Duration.ofHours(1);
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final ProfileRepository profileRepository;
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
+    private final RateLimiter rateLimiter;
 
     @Value("${money.manager.frontendUrl}")
     private String frontendUrl;
@@ -50,7 +52,12 @@ public class PasswordResetService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El email es obligatorio");
         }
 
-        profileRepository.findByEmail(email.trim()).ifPresent(profile -> {
+        String normalized = email.trim();
+        // Shares the per-address budget with activation emails, so nobody can flood someone's inbox
+        if (!rateLimiter.tryAcquire("mail:" + normalized.toLowerCase(), ProfileService.MAX_EMAILS_PER_ADDRESS, Duration.ofHours(1))) {
+            return;
+        }
+        profileRepository.findByEmail(normalized).ifPresent(profile -> {
             String token = newToken();
             profile.setPasswordResetTokenHash(hash(token));
             profile.setPasswordResetExpiresAt(LocalDateTime.now().plus(TOKEN_VALIDITY));
@@ -69,10 +76,7 @@ public class PasswordResetService {
         if (token == null || token.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Falta el enlace de recuperación");
         }
-        if (newPassword == null || newPassword.length() < MIN_PASSWORD_LENGTH) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "La contraseña debe tener al menos " + MIN_PASSWORD_LENGTH + " caracteres");
-        }
+        InputRules.validatePassword(newPassword);
 
         ProfileEntity profile = profileRepository.findByPasswordResetTokenHash(hash(token.trim()))
                 .filter(p -> p.getPasswordResetExpiresAt() != null && p.getPasswordResetExpiresAt().isAfter(LocalDateTime.now()))

@@ -4,6 +4,8 @@ import com.cristian.moneymanager.dto.AuthDto;
 import com.cristian.moneymanager.dto.ProfileDto;
 import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.repository.ProfileRepository;
+import com.cristian.moneymanager.security.RateLimiter;
+import com.cristian.moneymanager.util.InputRules;
 import com.cristian.moneymanager.util.JwtUtil;
 import com.cristian.moneymanager.email.EmailContent;
 import com.cristian.moneymanager.email.EmailTemplate;
@@ -37,23 +39,20 @@ public class ProfileService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
+    private final RateLimiter rateLimiter;
 
     private static final Duration ACTIVATION_VALIDITY = Duration.ofHours(24);
+    private static final int MAX_LOGIN_FAILURES = 5;
+    private static final Duration LOGIN_LOCK_WINDOW = Duration.ofMinutes(15);
+    public static final int MAX_EMAILS_PER_ADDRESS = 3;
 
     @Value("${money.manager.frontendUrl}")
     private String frontendUrl;
 
     public ProfileDto registerProfile(ProfileDto profileDto) {
-        if (profileDto.getFullName() == null || profileDto.getFullName().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre completo es obligatorio");
-        }
-        if (profileDto.getEmail() == null || profileDto.getEmail().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El email es obligatorio");
-        }
-        if (profileDto.getPassword() == null || profileDto.getPassword().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La contraseña es obligatoria");
-        }
-        profileDto.setEmail(profileDto.getEmail().trim());
+        profileDto.setFullName(InputRules.validateFullName(profileDto.getFullName()));
+        profileDto.setEmail(InputRules.validateEmail(profileDto.getEmail()));
+        InputRules.validatePassword(profileDto.getPassword());
         profileDto.setId(null); // never let the client choose (or overwrite) an id
 
         ProfileEntity existing = profileRepository.findByEmail(profileDto.getEmail()).orElse(null);
@@ -136,7 +135,12 @@ public class ProfileService {
         if (email == null || email.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El email es obligatorio");
         }
-        profileRepository.findByEmail(email.trim())
+        String normalized = email.trim();
+        // At most a few emails per address per hour, so nobody can flood someone else's inbox
+        if (!rateLimiter.tryAcquire("mail:" + normalized.toLowerCase(), MAX_EMAILS_PER_ADDRESS, Duration.ofHours(1))) {
+            return;
+        }
+        profileRepository.findByEmail(normalized)
                 .filter(profile -> !Boolean.TRUE.equals(profile.getIsActive()))
                 .ifPresent(profile -> {
                     assignActivationToken(profile);
@@ -204,17 +208,33 @@ public class ProfileService {
                 .build();
     }
 
+    /** New token for the logged-in user (the old one keeps working until it expires). */
+    public Map<String, Object> refreshToken() {
+        ProfileEntity profile = getCurrentProfile();
+        if (!Boolean.TRUE.equals(profile.getIsActive())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_NOT_ACTIVE", "Tu cuenta no está activada.");
+        }
+        return Map.of("token", jwtUtil.generateToken(profile.getEmail()));
+    }
+
     /**
      * Checks the password first and only then whether the account is active, so the
      * "not activated" answer is never given for a wrong password or an unknown email.
      */
     public Map<String, Object> authenticateAndGenerateToken(AuthDto authDto) {
         String email = authDto.getEmail() == null ? "" : authDto.getEmail().trim();
+        String failuresKey = "login-fail:" + email.toLowerCase();
+        if (rateLimiter.isLimited(failuresKey, MAX_LOGIN_FAILURES, LOGIN_LOCK_WINDOW)) {
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED",
+                    "Demasiados intentos fallidos con esta cuenta. Espera unos minutos o restablece tu contraseña.");
+        }
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, authDto.getPassword()));
         } catch (AuthenticationException e) {
+            rateLimiter.record(failuresKey);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email o contraseña incorrectos");
         }
+        rateLimiter.reset(failuresKey);
 
         if (!isAccountActive(email)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_NOT_ACTIVE",

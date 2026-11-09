@@ -42,6 +42,12 @@ public class ProfileController {
         return ResponseEntity.ok(profileService.authenticateAndGenerateToken(authDto));
     }
 
+    /** Requires a valid token; returns a fresh one so the web can extend the session. */
+    @PostMapping(path = "/refresh-token")
+    public ResponseEntity<Map<String, Object>> refreshToken() {
+        return ResponseEntity.ok(profileService.refreshToken());
+    }
+
     /** Always answers the same, whether or not the email exists or is already active. */
     @PostMapping(path = "/resend-activation")
     public ResponseEntity<Map<String, Object>> resendActivation(@RequestBody PasswordResetDto dto) {
