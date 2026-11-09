@@ -56,10 +56,10 @@ public class ExpenseService {
     public ExpenseDto updateExpense(Long id, ExpenseDto dto) {
         ProfileEntity profile = profileService.getCurrentProfile();
         ExpenseEntity entity = expenseRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Gasto no encontrado"));
 
         if (!entity.getProfile().getId().equals(profile.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized to update this expense");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes modificar este gasto");
         }
 
         validate(dto);
@@ -79,10 +79,10 @@ public class ExpenseService {
     public void deleteExpense(Long id) {
         ProfileEntity profile = profileService.getCurrentProfile();
         ExpenseEntity entity = expenseRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Gasto no encontrado"));
 
         if (!entity.getProfile().getId().equals(profile.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized to delete this expense");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes borrar este gasto");
         }
 
         expenseRepository.delete(entity);
@@ -129,26 +129,26 @@ public class ExpenseService {
     /** The category must belong to the current user and be an expense category. */
     private CategoryEntity findExpenseCategory(Long categoryId, ProfileEntity profile) {
         CategoryEntity category = categoryRepository.findByIdAndProfileId(categoryId, profile.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Categoría no encontrada"));
 
         if (!"expense".equalsIgnoreCase(category.getType())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The selected category is not an expense category");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La categoría elegida no es de gastos");
         }
         return category;
     }
 
     private void validate(ExpenseDto dto) {
         if (dto.getName() == null || dto.getName().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Name is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre es obligatorio");
         }
         if (dto.getCategoryId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La categoría es obligatoria");
         }
         if (dto.getAmount() == null || dto.getAmount().signum() <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Amount must be greater than 0");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El importe debe ser mayor que 0");
         }
         if (dto.getDate() != null && dto.getDate().isAfter(LocalDate.now().plusDays(1))) { // +1 day: client may be ahead of server (UTC)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date cannot be in the future");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha no puede ser futura");
         }
     }
 

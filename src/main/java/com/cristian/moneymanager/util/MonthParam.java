@@ -24,7 +24,7 @@ public final class MonthParam {
         try {
             return YearMonth.parse(month.trim());
         } catch (DateTimeParseException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid month, expected format yyyy-MM (e.g. 2026-10)");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mes no válido, el formato es aaaa-mm (por ejemplo 2026-10)");
         }
     }
 }

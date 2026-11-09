@@ -57,10 +57,10 @@ public class IncomeService {
     public IncomeDto updateIncome(Long id, IncomeDto dto) {
         ProfileEntity profile = profileService.getCurrentProfile();
         IncomeEntity entity = incomeRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Income not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ingreso no encontrado"));
 
         if (!entity.getProfile().getId().equals(profile.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized to update this income");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes modificar este ingreso");
         }
 
         validate(dto);
@@ -80,10 +80,10 @@ public class IncomeService {
     public void deleteIncome(Long id) {
         ProfileEntity profile = profileService.getCurrentProfile();
         IncomeEntity entity = incomeRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Income not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ingreso no encontrado"));
 
         if (!entity.getProfile().getId().equals(profile.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized to delete this income");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes borrar este ingreso");
         }
 
         incomeRepository.delete(entity);
@@ -121,26 +121,26 @@ public class IncomeService {
     /** The category must belong to the current user and be an income category. */
     private CategoryEntity findIncomeCategory(Long categoryId, ProfileEntity profile) {
         CategoryEntity category = categoryRepository.findByIdAndProfileId(categoryId, profile.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Categoría no encontrada"));
 
         if (!"income".equalsIgnoreCase(category.getType())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The selected category is not an income category");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La categoría elegida no es de ingresos");
         }
         return category;
     }
 
     private void validate(IncomeDto dto) {
         if (dto.getName() == null || dto.getName().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Name is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre es obligatorio");
         }
         if (dto.getCategoryId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La categoría es obligatoria");
         }
         if (dto.getAmount() == null || dto.getAmount().signum() <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Amount must be greater than 0");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El importe debe ser mayor que 0");
         }
         if (dto.getDate() != null && dto.getDate().isAfter(LocalDate.now().plusDays(1))) { // +1 day: client may be ahead of server (UTC)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date cannot be in the future");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha no puede ser futura");
         }
     }
 
