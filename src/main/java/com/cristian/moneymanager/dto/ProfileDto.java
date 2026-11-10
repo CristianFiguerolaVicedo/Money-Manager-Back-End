@@ -20,4 +20,7 @@ public class ProfileDto {
     private String profileImageUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Boolean emailDailyReminder;
+    private Boolean emailDailySummary;
+    private Boolean emailMonthlyReport;
 }

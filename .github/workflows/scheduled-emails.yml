@@ -1,0 +1,52 @@
+name: Scheduled emails
+
+# Starts the optional emails users turn on in their profile. The backend runs on Render's free plan,
+# which sleeps when idle, so its own timers would not fire; this request wakes it up first.
+# Times are UTC: Madrid is UTC+1 in winter and UTC+2 in summer.
+on:
+  schedule:
+    - cron: "0 19 * * *"   # daily-reminder  (20:00 winter / 21:00 summer)
+    - cron: "30 20 * * *"  # daily-summary   (21:30 / 22:30)
+    - cron: "0 8 1 * *"    # monthly-report  (1st of the month, 09:00 / 10:00)
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Job to run
+        required: true
+        type: choice
+        options: [daily-reminder, daily-summary, monthly-report]
+
+env:
+  API_URL: https://money-manager-t0yw.onrender.com/api/v1.0
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Pick the job
+        id: pick
+        run: |
+          case "${{ github.event.schedule }}" in
+            "0 19 * * *")  job=daily-reminder ;;
+            "30 20 * * *") job=daily-summary ;;
+            "0 8 1 * *")   job=monthly-report ;;
+            *)             job="${{ inputs.job }}" ;;
+          esac
+          echo "job=$job" >> "$GITHUB_OUTPUT"
+
+      - name: Wake up the backend
+        run: |
+          for i in $(seq 1 12); do
+            if curl -fsS --max-time 60 "$API_URL/health" > /dev/null; then echo "Backend is up"; exit 0; fi
+            echo "Waiting for the backend ($i)..."; sleep 10
+          done
+          echo "Backend did not wake up"; exit 1
+
+      - name: Run ${{ steps.pick.outputs.job }}
+        env:
+          JOBS_SECRET: ${{ secrets.JOBS_SECRET }}
+        run: |
+          if [ -z "$JOBS_SECRET" ]; then echo "Add the JOBS_SECRET repository secret first"; exit 1; fi
+          curl -fsS --max-time 300 -X POST -H "X-Jobs-Secret: $JOBS_SECRET" "$API_URL/internal/jobs/${{ steps.pick.outputs.job }}"
+          echo

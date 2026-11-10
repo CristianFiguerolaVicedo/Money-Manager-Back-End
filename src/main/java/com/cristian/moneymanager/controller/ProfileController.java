@@ -90,6 +90,17 @@ public class ProfileController {
         return ResponseEntity.ok(Map.of("message", "Contraseña actualizada"));
     }
 
+    @PutMapping("/profile/email-preferences")
+    public ResponseEntity<ProfileDto> updateEmailPreferences(@RequestBody AccountDtos.EmailPreferencesRequest request) {
+        return ResponseEntity.ok(accountService.updateEmailPreferences(request));
+    }
+
+    @PostMapping("/unsubscribe")
+    public ResponseEntity<Map<String, Object>> unsubscribe(@RequestBody(required = false) AccountDtos.UnsubscribeRequest request) {
+        accountService.unsubscribe(request == null ? null : request.token());
+        return ResponseEntity.ok(Map.of("message", "Ya no recibirás más emails programados"));
+    }
+
     @DeleteMapping("/profile")
     public ResponseEntity<Void> deleteAccount(@RequestBody(required = false) AccountDtos.DeleteAccountRequest request) {
         accountService.deleteAccount(request);

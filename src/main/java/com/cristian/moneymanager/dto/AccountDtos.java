@@ -14,4 +14,10 @@ public final class AccountDtos {
 
     public record DeleteAccountRequest(String password) {
     }
+
+    public record EmailPreferencesRequest(Boolean dailyReminder, Boolean dailySummary, Boolean monthlyReport) {
+    }
+
+    public record UnsubscribeRequest(String token) {
+    }
 }

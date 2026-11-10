@@ -24,6 +24,7 @@ public interface ExpenseRepository extends JpaRepository<ExpenseEntity, Long> {
     List<ExpenseEntity> findByProfileIdAndDateBetween(Long profileId, LocalDate startDate, LocalDate endDate);
     List<ExpenseEntity> findByProfileIdAndDateBetweenOrderByDateDescIdDesc(Long profileId, LocalDate startDate, LocalDate endDate);
     List<ExpenseEntity> findByProfileIdAndDate(Long profileId, LocalDate date);
+    boolean existsByProfileIdAndDate(Long profileId, LocalDate date);
 
 
     long countByCategoryId(Long categoryId);

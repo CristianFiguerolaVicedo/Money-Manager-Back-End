@@ -4,6 +4,7 @@ import com.cristian.moneymanager.dto.CategoryDto;
 import com.cristian.moneymanager.entity.CategoryEntity;
 import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.exception.CategoryInUseException;
+import com.cristian.moneymanager.repository.BudgetRepository;
 import com.cristian.moneymanager.repository.CategoryRepository;
 import com.cristian.moneymanager.repository.ExpenseRepository;
 import com.cristian.moneymanager.repository.IncomeRepository;
@@ -21,6 +22,7 @@ import java.util.Optional;
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final BudgetRepository budgetRepository;
     private final IncomeRepository incomeRepository;
     private final ExpenseRepository expenseRepository;
     private final ProfileService profileService;
@@ -105,6 +107,7 @@ public class CategoryService {
             }
         }
 
+        budgetRepository.deleteByCategoryId(id);
         categoryRepository.delete(category);
     }
 

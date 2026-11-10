@@ -57,6 +57,9 @@ public class EmailService {
         Map<String, Object> payload = basePayload(to, content.subject());
         payload.put("htmlContent", content.html());
         payload.put("textContent", content.text());
+        if (content.unsubscribeUrl() != null) {
+            payload.put("headers", Map.of("List-Unsubscribe", "<" + content.unsubscribeUrl() + ">"));
+        }
         send(payload);
     }
 

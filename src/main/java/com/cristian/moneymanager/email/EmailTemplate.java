@@ -41,6 +41,7 @@ public final class EmailTemplate {
     private String buttonText;
     private String buttonUrl;
     private final List<String> notes = new ArrayList<>();
+    private String unsubscribeUrl;
 
     private EmailTemplate(String subject) {
         this.subject = subject;
@@ -87,8 +88,14 @@ public final class EmailTemplate {
         return this;
     }
 
+    /** Optional emails only: adds a "darse de baja" link to the footer (and the List-Unsubscribe header). */
+    public EmailTemplate unsubscribeLink(String url) {
+        this.unsubscribeUrl = url;
+        return this;
+    }
+
     public EmailContent build() {
-        return new EmailContent(subject, html(), text());
+        return new EmailContent(subject, html(), text(), unsubscribeUrl);
     }
 
     // ------------------------------------------------------------------ HTML
@@ -143,7 +150,11 @@ public final class EmailTemplate {
                 + "</td></tr>"
                 // footer
                 + "<tr><td align=\"center\" style=\"padding:20px 32px;font-family:" + FONT + ";font-size:12px;line-height:18px;color:" + MUTED + ";\">"
-                + "Has recibido este email porque tienes una cuenta en Money Manager.<br>&copy; " + Year.now() + " Money Manager"
+                + (unsubscribeUrl == null
+                    ? "Has recibido este email porque tienes una cuenta en Money Manager."
+                    : "Recibes este email porque lo activaste en tu perfil de Money Manager.<br>"
+                        + "<a href=\"" + esc(unsubscribeUrl) + "\" style=\"color:" + MUTED + ";text-decoration:underline;\">No quiero recibir más estos emails</a>")
+                + "<br>&copy; " + Year.now() + " Money Manager"
                 + "</td></tr>"
                 + "</table></td></tr></table></body></html>";
     }
@@ -173,6 +184,9 @@ public final class EmailTemplate {
             text.append(note).append("\n");
         }
         text.append("\nUn saludo,\nEl equipo de Money Manager\n");
+        if (unsubscribeUrl != null) {
+            text.append("\nPara dejar de recibir estos emails: ").append(unsubscribeUrl).append("\n");
+        }
         return text.toString();
     }
 

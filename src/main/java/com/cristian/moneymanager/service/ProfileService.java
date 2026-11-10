@@ -205,6 +205,9 @@ public class ProfileService {
                 .profileImageUrl(profileEntity.getProfileImageUrl())
                 .createdAt(profileEntity.getCreatedAt())
                 .updatedAt(profileEntity.getUpdatedAt())
+                .emailDailyReminder(Boolean.TRUE.equals(profileEntity.getEmailDailyReminder()))
+                .emailDailySummary(Boolean.TRUE.equals(profileEntity.getEmailDailySummary()))
+                .emailMonthlyReport(Boolean.TRUE.equals(profileEntity.getEmailMonthlyReport()))
                 .build();
     }
 
