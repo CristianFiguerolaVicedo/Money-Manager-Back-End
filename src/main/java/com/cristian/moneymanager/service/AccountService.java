@@ -11,6 +11,8 @@ import com.cristian.moneymanager.exception.ApiException;
 import com.cristian.moneymanager.repository.BudgetRepository;
 import com.cristian.moneymanager.repository.CategoryRepository;
 import com.cristian.moneymanager.repository.ExpenseRepository;
+import com.cristian.moneymanager.repository.GoalContributionRepository;
+import com.cristian.moneymanager.repository.GoalRepository;
 import com.cristian.moneymanager.repository.IncomeRepository;
 import com.cristian.moneymanager.repository.ProfileRepository;
 import com.cristian.moneymanager.repository.RecurringRepository;
@@ -43,6 +45,8 @@ public class AccountService {
     private final ExpenseRepository expenseRepository;
     private final CategoryRepository categoryRepository;
     private final BudgetRepository budgetRepository;
+    private final GoalRepository goalRepository;
+    private final GoalContributionRepository goalContributionRepository;
     private final RecurringRepository recurringRepository;
     private final PasswordEncoder passwordEncoder;
     private final RateLimiter rateLimiter;
@@ -116,6 +120,8 @@ public class AccountService {
         checkPassword(profile, request == null ? null : request.password());
 
         Long profileId = profile.getId();
+        goalContributionRepository.deleteByProfileId(profileId);
+        goalRepository.deleteByProfileId(profileId);
         budgetRepository.deleteByProfileId(profileId);
         recurringRepository.deleteByProfileId(profileId);
         incomeRepository.deleteByProfileId(profileId);
