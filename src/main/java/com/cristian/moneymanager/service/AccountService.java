@@ -2,11 +2,13 @@ package com.cristian.moneymanager.service;
 
 import com.cristian.moneymanager.dto.AccountDtos.ChangePasswordRequest;
 import com.cristian.moneymanager.dto.AccountDtos.DeleteAccountRequest;
+import com.cristian.moneymanager.dto.AccountDtos.EmailPreferencesRequest;
 import com.cristian.moneymanager.dto.AccountDtos.UpdateProfileRequest;
 import com.cristian.moneymanager.dto.ProfileDto;
 import com.cristian.moneymanager.email.EmailTemplate;
 import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.exception.ApiException;
+import com.cristian.moneymanager.repository.BudgetRepository;
 import com.cristian.moneymanager.repository.CategoryRepository;
 import com.cristian.moneymanager.repository.ExpenseRepository;
 import com.cristian.moneymanager.repository.IncomeRepository;
@@ -39,6 +41,7 @@ public class AccountService {
     private final IncomeRepository incomeRepository;
     private final ExpenseRepository expenseRepository;
     private final CategoryRepository categoryRepository;
+    private final BudgetRepository budgetRepository;
     private final PasswordEncoder passwordEncoder;
     private final RateLimiter rateLimiter;
     private final EmailService emailService;
@@ -73,6 +76,37 @@ public class AccountService {
         notifyPasswordChanged(profile);
     }
 
+    /** Turns the optional scheduled emails on or off (fields left null keep their value). */
+    public ProfileDto updateEmailPreferences(EmailPreferencesRequest request) {
+        if (request == null) {
+            throw badRequest("Faltan las preferencias");
+        }
+        ProfileEntity profile = profileService.getCurrentProfile();
+        if (request.dailyReminder() != null) {
+            profile.setEmailDailyReminder(request.dailyReminder());
+        }
+        if (request.dailySummary() != null) {
+            profile.setEmailDailySummary(request.dailySummary());
+        }
+        if (request.monthlyReport() != null) {
+            profile.setEmailMonthlyReport(request.monthlyReport());
+        }
+        return profileService.toDto(profileRepository.save(profile));
+    }
+
+    /** One-click unsubscribe from the link in scheduled emails (no login): turns every optional email off. */
+    public void unsubscribe(String token) {
+        if (token == null || token.isBlank()) {
+            throw badRequest("El enlace no es válido");
+        }
+        ProfileEntity profile = profileRepository.findByEmailUnsubscribeToken(token.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "El enlace no es válido o ya no existe"));
+        profile.setEmailDailyReminder(false);
+        profile.setEmailDailySummary(false);
+        profile.setEmailMonthlyReport(false);
+        profileRepository.save(profile);
+    }
+
     /** Deletes the user and everything they own (incomes, expenses, categories). */
     @Transactional
     public void deleteAccount(DeleteAccountRequest request) {
@@ -80,6 +114,7 @@ public class AccountService {
         checkPassword(profile, request == null ? null : request.password());
 
         Long profileId = profile.getId();
+        budgetRepository.deleteByProfileId(profileId);
         incomeRepository.deleteByProfileId(profileId);
         expenseRepository.deleteByProfileId(profileId);
         categoryRepository.deleteByProfileId(profileId);

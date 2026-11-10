@@ -39,10 +39,26 @@ public class ProfileEntity {
     private String passwordResetTokenHash;
     private LocalDateTime passwordResetExpiresAt;
 
+    /** Scheduled emails the user opted in to (all off by default). */
+    private Boolean emailDailyReminder;
+    private Boolean emailDailySummary;
+    private Boolean emailMonthlyReport;
+    /** Random token for the "unsubscribe" link in scheduled emails (works without logging in). */
+    private String emailUnsubscribeToken;
+
     @PrePersist
     public void prePersist() {
         if (this.isActive == null) {
             isActive = false;
+        }
+        if (emailDailyReminder == null) {
+            emailDailyReminder = false;
+        }
+        if (emailDailySummary == null) {
+            emailDailySummary = false;
+        }
+        if (emailMonthlyReport == null) {
+            emailMonthlyReport = false;
         }
     }
 }

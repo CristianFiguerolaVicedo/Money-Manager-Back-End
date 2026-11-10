@@ -175,14 +175,7 @@ public class ProfileService {
                     .orElseThrow(() -> new UsernameNotFoundException("Profile with email " + email + " not found"));
         }
 
-        return ProfileDto.builder()
-                .id(currentUser.getId())
-                .fullName(currentUser.getFullName())
-                .email(currentUser.getEmail())
-                .profileImageUrl(currentUser.getProfileImageUrl())
-                .createdAt(currentUser.getCreatedAt())
-                .updatedAt(currentUser.getUpdatedAt())
-                .build();
+        return toDto(currentUser);
     }
 
     public ProfileEntity toEntity(ProfileDto profileDto) {
@@ -205,6 +198,9 @@ public class ProfileService {
                 .profileImageUrl(profileEntity.getProfileImageUrl())
                 .createdAt(profileEntity.getCreatedAt())
                 .updatedAt(profileEntity.getUpdatedAt())
+                .emailDailyReminder(Boolean.TRUE.equals(profileEntity.getEmailDailyReminder()))
+                .emailDailySummary(Boolean.TRUE.equals(profileEntity.getEmailDailySummary()))
+                .emailMonthlyReport(Boolean.TRUE.equals(profileEntity.getEmailMonthlyReport()))
                 .build();
     }
 

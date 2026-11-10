@@ -12,4 +12,8 @@ public interface ProfileRepository extends JpaRepository<ProfileEntity, Long> {
     Optional<ProfileEntity> findByActivationToken(String activationToken);
     List<ProfileEntity> findByIsActiveTrue();
     Optional<ProfileEntity> findByPasswordResetTokenHash(String passwordResetTokenHash);
+    Optional<ProfileEntity> findByEmailUnsubscribeToken(String emailUnsubscribeToken);
+    List<ProfileEntity> findByIsActiveTrueAndEmailDailyReminderTrue();
+    List<ProfileEntity> findByIsActiveTrueAndEmailDailySummaryTrue();
+    List<ProfileEntity> findByIsActiveTrueAndEmailMonthlyReportTrue();
 }
