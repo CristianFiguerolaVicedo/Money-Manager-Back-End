@@ -25,11 +25,11 @@ import java.util.List;
  */
 public final class EmailTemplate {
 
-    private static final String BRAND = "#6b21a8";       // purple-800, same as the web
-    private static final String BRAND_DARK = "#3b0764";  // purple-950
+    private static final String BRAND = "#047857";       // emerald, same accent as the web
+    private static final String BRAND_DARK = "#111715";  // graphite, like the web side panel
     private static final String TEXT = "#1f2937";
     private static final String MUTED = "#6b7280";
-    private static final String BACKGROUND = "#f3f4f6";
+    private static final String BACKGROUND = "#f4f6f5";
     private static final String FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
     private final String subject;
@@ -141,7 +141,7 @@ public final class EmailTemplate {
                 + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"max-width:600px;\">"
                 // header
                 + "<tr><td bgcolor=\"" + BRAND_DARK + "\" style=\"padding:22px 32px;border-radius:12px 12px 0 0;\">"
-                + "<span style=\"font-family:" + FONT + ";font-size:20px;font-weight:bold;color:#ffffff;\">&#128176; Money Manager</span>"
+                + "<span style=\"font-family:" + FONT + ";font-size:20px;font-weight:bold;color:#ffffff;\">Money Manager</span>"
                 + "</td></tr>"
                 // card
                 + "<tr><td bgcolor=\"#ffffff\" style=\"padding:32px;border-radius:0 0 12px 12px;\">"
