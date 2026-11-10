@@ -46,6 +46,10 @@ public class ExpenseEntity {
     /** Rule that created this movement automatically (null when added by hand). */
     private Long recurringId;
 
+    /** Optional free-text note (F15). */
+    @Column(length = 500)
+    private String note;
+
     @PrePersist
     public void prePersist() {
         if (this.date == null) {

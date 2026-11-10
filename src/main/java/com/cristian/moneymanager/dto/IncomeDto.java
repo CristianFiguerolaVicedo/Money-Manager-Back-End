@@ -25,4 +25,7 @@ public class IncomeDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long recurringId;
+    private String note;
+    /** Number of attached files (filled in list responses). */
+    private Integer attachmentCount;
 }
