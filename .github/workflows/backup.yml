@@ -1,0 +1,93 @@
+name: Database backup
+
+# Nightly logical backup of the Neon database (T8). Neon's free plan can only restore the last 6 hours,
+# so this keeps 30 days of daily copies.
+# Each run: pg_dump -> restore into a throwaway PostgreSQL to prove the copy works -> encrypt -> artifact.
+# The repository is public, so the copy is ALWAYS encrypted (AES-256) before it is uploaded.
+#
+# Needs two repository secrets:
+#   NEON_DATABASE_URL  direct (not "-pooler") connection string, e.g. postgresql://user:pass@ep-xxx.eu-central-1.aws.neon.tech/neondb?sslmode=require
+#   BACKUP_PASSPHRASE  long random passphrase; keep a copy somewhere safe, without it the backups cannot be opened
+#
+# Restore: see "Copias de seguridad" in README.md.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Empty PostgreSQL (same major version as Neon) used only to check that the dump restores
+    services:
+      check:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: check
+          POSTGRES_DB: restore_check
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Check secrets
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$NEON_DATABASE_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::Add the NEON_DATABASE_URL and BACKUP_PASSPHRASE repository secrets (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+          if [ ${#BACKUP_PASSPHRASE} -lt 20 ]; then
+            echo "::error::BACKUP_PASSPHRASE is too short (use at least 20 characters)."
+            exit 1
+          fi
+
+      - name: Dump the database
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          mkdir -p backup
+          docker run --rm --network host -v "$PWD/backup:/backup" -e URL="$NEON_DATABASE_URL" postgres:18 \
+            sh -c 'pg_dump "$URL" --format=custom --no-owner --no-privileges --file=/backup/db.dump'
+          ls -lh backup/db.dump
+
+      - name: Check that the copy restores
+        run: |
+          docker run --rm --network host -v "$PWD/backup:/backup" -e PGPASSWORD=check postgres:18 \
+            pg_restore --host=localhost --username=postgres --dbname=restore_check --no-owner --no-privileges --exit-on-error /backup/db.dump
+          # Only row counts are printed, never data
+          docker run --rm --network host -e PGPASSWORD=check postgres:18 psql --host=localhost --username=postgres --dbname=restore_check -v ON_ERROR_STOP=1 -At -c "
+            SELECT 'profiles: '   || count(*) FROM tbl_profiles
+            UNION ALL SELECT 'incomes: '  || count(*) FROM tbl_incomes
+            UNION ALL SELECT 'expenses: ' || count(*) FROM tbl_expenses
+            UNION ALL SELECT 'migration: v' || max(version) FROM flyway_schema_history WHERE success;"
+
+      - name: Encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          NAME="money-manager-$(date -u +%Y-%m-%d).dump.gpg"
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 --output "backup/$NAME" backup/db.dump
+          shred -u backup/db.dump
+          echo "NAME=$NAME" >> "$GITHUB_ENV"
+          ls -lh backup
+
+      - name: Upload encrypted copy
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}
+          path: backup/${{ env.NAME }}
+          retention-days: 30
+          if-no-files-found: error
