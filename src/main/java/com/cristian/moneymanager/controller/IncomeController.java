@@ -1,6 +1,7 @@
 package com.cristian.moneymanager.controller;
 
 import com.cristian.moneymanager.dto.IncomeDto;
+import com.cristian.moneymanager.service.RecurringService;
 import com.cristian.moneymanager.service.IncomeService;
 import com.cristian.moneymanager.util.MonthParam;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import java.util.List;
 public class IncomeController {
 
     private final IncomeService incomeService;
+    private final RecurringService recurringService;
 
     @PostMapping
     public ResponseEntity<IncomeDto> addIncome(@RequestBody IncomeDto dto) {
@@ -27,6 +29,7 @@ public class IncomeController {
     /** Incomes of one month; ?month=yyyy-MM, defaults to the current month. */
     @GetMapping
     public ResponseEntity<List<IncomeDto>> getIncomes(@RequestParam(required = false) String month) {
+        recurringService.catchUpCurrentUser();
         List<IncomeDto> list = incomeService.getIncomesForMonth(MonthParam.parseOrCurrent(month));
         return ResponseEntity.ok(list);
     }

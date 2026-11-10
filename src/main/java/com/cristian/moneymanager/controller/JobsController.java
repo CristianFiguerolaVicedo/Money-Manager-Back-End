@@ -1,5 +1,6 @@
 package com.cristian.moneymanager.controller;
 
+import com.cristian.moneymanager.service.RecurringService;
 import com.cristian.moneymanager.service.ScheduledEmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,18 +24,22 @@ import java.security.MessageDigest;
 public class JobsController {
 
     private final ScheduledEmailService scheduledEmailService;
+    private final RecurringService recurringService;
 
     @Value("${app.jobs.secret:}")
     private String jobsSecret;
 
     @PostMapping("/internal/jobs/{job}")
-    public ResponseEntity<ScheduledEmailService.JobResult> runJob(@PathVariable String job,
+    public ResponseEntity<?> runJob(@PathVariable String job,
                                                                   @RequestHeader(value = "X-Jobs-Secret", required = false) String secret) {
         if (jobsSecret == null || jobsSecret.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Los envíos programados no están configurados");
         }
         if (secret == null || !MessageDigest.isEqual(secret.getBytes(StandardCharsets.UTF_8), jobsSecret.getBytes(StandardCharsets.UTF_8))) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No autorizado");
+        }
+        if ("recurring".equals(job)) {
+            return ResponseEntity.ok(java.util.Map.of("job", job, "created", recurringService.generateAllDue()));
         }
         if (!ScheduledEmailService.JOBS.contains(job)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tarea desconocida");

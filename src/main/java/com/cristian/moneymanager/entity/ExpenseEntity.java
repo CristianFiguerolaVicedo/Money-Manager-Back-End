@@ -43,6 +43,9 @@ public class ExpenseEntity {
     @JoinColumn(name = "profile_id", nullable = false)
     private ProfileEntity profile;
 
+    /** Rule that created this movement automatically (null when added by hand). */
+    private Long recurringId;
+
     @PrePersist
     public void prePersist() {
         if (this.date == null) {

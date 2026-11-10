@@ -166,6 +166,7 @@ public class IncomeService {
                 .date(entity.getDate())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .recurringId(entity.getRecurringId())
                 .build();
     }
 }

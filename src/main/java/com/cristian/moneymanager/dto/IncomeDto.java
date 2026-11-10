@@ -24,4 +24,5 @@ public class IncomeDto {
     private LocalDate date;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long recurringId;
 }
