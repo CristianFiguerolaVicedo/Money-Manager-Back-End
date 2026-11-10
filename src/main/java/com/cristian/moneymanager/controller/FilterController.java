@@ -6,6 +6,7 @@ import com.cristian.moneymanager.dto.IncomeDto;
 import com.cristian.moneymanager.service.ExpenseService;
 import com.cristian.moneymanager.service.IncomeService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,6 +24,8 @@ import java.util.Map;
 public class FilterController {
 
     private static final LocalDate EARLIEST_DATE = LocalDate.of(1900, 1, 1);
+    static final int DEFAULT_PAGE_SIZE = 20;
+    static final int MAX_PAGE_SIZE = 100;
 
     // Whitelist of sortable fields (request value -> entity property)
     private static final Map<String, String> SORT_FIELDS = Map.of(
@@ -49,6 +52,18 @@ public class FilterController {
                 filterDto.getSortField() != null ? filterDto.getSortField().toLowerCase() : "date", "date");
         Sort.Direction direction = "desc".equalsIgnoreCase(filterDto.getSortOrder()) ? Sort.Direction.DESC : Sort.Direction.ASC;
         Sort sort = Sort.by(direction, sortField).and(Sort.by(direction, "id"));
+
+        if (filterDto.getPage() != null) {
+            int page = Math.max(0, filterDto.getPage());
+            int size = Math.min(MAX_PAGE_SIZE, Math.max(1, filterDto.getSize() != null ? filterDto.getSize() : DEFAULT_PAGE_SIZE));
+            PageRequest pageable = PageRequest.of(page, size, sort);
+            if ("income".equalsIgnoreCase(filterDto.getType())) {
+                return ResponseEntity.ok(incomeService.filterIncomesPage(startDate, endDate, keyword, pageable));
+            } else if ("expense".equalsIgnoreCase(filterDto.getType())) {
+                return ResponseEntity.ok(expenseService.filterExpensesPage(startDate, endDate, keyword, pageable));
+            }
+            return ResponseEntity.badRequest().body(Map.of("message", "Tipo no válido, debe ser 'income' o 'expense'"));
+        }
 
         if ("income".equalsIgnoreCase(filterDto.getType())) {
             List<IncomeDto> incomes = incomeService.filterIncomes(startDate, endDate, keyword, sort);

@@ -8,6 +8,10 @@ import com.cristian.moneymanager.repository.CategoryRepository;
 import com.cristian.moneymanager.util.MonthParam;
 import com.cristian.moneymanager.repository.ExpenseRepository;
 import lombok.RequiredArgsConstructor;
+import com.cristian.moneymanager.dto.PageDto;
+import com.cristian.moneymanager.util.LikeEscape;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -86,6 +90,15 @@ public class ExpenseService {
         }
 
         expenseRepository.delete(entity);
+    }
+
+    /** One page of a search, with the total amount of every matching expense. */
+    public PageDto<ExpenseDto> filterExpensesPage(LocalDate startDate, LocalDate endDate, String keyword, Pageable pageable) {
+        ProfileEntity profile = profileService.getCurrentProfile();
+        Page<ExpenseEntity> page = expenseRepository.findByProfileIdAndDateBetweenAndNameContainingIgnoreCase(profile.getId(), startDate, endDate, keyword, pageable);
+        BigDecimal total = expenseRepository.sumForSearch(profile.getId(), startDate, endDate, LikeEscape.escape(keyword));
+        return new PageDto<>(page.getContent().stream().map(this::toDto).toList(),
+                page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages(), total);
     }
 
     public List<ExpenseDto> filterExpenses(LocalDate startDate, LocalDate endDate, String keyword, Sort sort) {

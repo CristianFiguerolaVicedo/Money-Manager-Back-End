@@ -1,6 +1,8 @@
 package com.cristian.moneymanager.repository;
 
 import com.cristian.moneymanager.entity.IncomeEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import com.cristian.moneymanager.entity.CategoryEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -21,6 +23,13 @@ public interface IncomeRepository extends JpaRepository<IncomeEntity, Long> {
     BigDecimal findTotalIncomeByProfileId(@Param("profileId") Long profileId);
 
     List<IncomeEntity> findByProfileIdAndDateBetweenAndNameContainingIgnoreCase(Long profileId, LocalDate startDate, LocalDate endDate, String keyword, Sort sort);
+    Page<IncomeEntity> findByProfileIdAndDateBetweenAndNameContainingIgnoreCase(Long profileId, LocalDate startDate, LocalDate endDate, String keyword, Pageable pageable);
+
+    /** Total of a search; keyword must already have %, _ and \\ escaped (see LikeEscape). */
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM IncomeEntity t WHERE t.profile.id = :profileId AND t.date BETWEEN :startDate AND :endDate "
+            + "AND LOWER(t.name) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'")
+    BigDecimal sumForSearch(@Param("profileId") Long profileId, @Param("startDate") LocalDate startDate,
+                            @Param("endDate") LocalDate endDate, @Param("keyword") String keyword);
     List<IncomeEntity> findByProfileIdAndDateBetween(Long profileId, LocalDate startDate, LocalDate endDate);
     boolean existsByProfileIdAndDate(Long profileId, LocalDate date);
     List<IncomeEntity> findByProfileIdAndDateBetweenOrderByDateDescIdDesc(Long profileId, LocalDate startDate, LocalDate endDate);

@@ -16,4 +16,7 @@ public class FilterDto {
     private String keyword;
     private String sortField;
     private String sortOrder; //asc or desc
+    /** Optional pagination (0-based). Without page the whole list is returned, as before. */
+    private Integer page;
+    private Integer size;
 }
