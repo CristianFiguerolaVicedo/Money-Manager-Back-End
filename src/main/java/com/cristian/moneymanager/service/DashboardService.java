@@ -30,6 +30,7 @@ public class DashboardService {
     private final IncomeService incomeService;
     private final ExpenseService expenseService;
     private final ProfileService profileService;
+    private final RecurringService recurringService;
     private final IncomeRepository incomeRepository;
     private final ExpenseRepository expenseRepository;
 
@@ -37,6 +38,7 @@ public class DashboardService {
     static final int TREND_MONTHS = 6;
 
     public Map<String, Object> getDashboardData() {
+        recurringService.catchUpCurrentUser(); // recurring movements due since the last visit
         ProfileEntity profile = profileService.getCurrentProfile();
         Map<String, Object> returnValue = new LinkedHashMap<>();
         List<IncomeDto> latestIncomes = incomeService.getLatest5IncomesForCurrentUser();

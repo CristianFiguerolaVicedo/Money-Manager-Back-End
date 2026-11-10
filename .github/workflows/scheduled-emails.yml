@@ -1,6 +1,6 @@
-name: Scheduled emails
+name: Scheduled jobs
 
-# Starts the optional emails users turn on in their profile. The backend runs on Render's free plan,
+# Starts the optional emails users turn on in their profile and creates due recurring movements. The backend runs on Render's free plan,
 # which sleeps when idle, so its own timers would not fire; this request wakes it up first.
 # Times are UTC: Madrid is UTC+1 in winter and UTC+2 in summer.
 on:
@@ -8,13 +8,14 @@ on:
     - cron: "0 19 * * *"   # daily-reminder  (20:00 winter / 21:00 summer)
     - cron: "30 20 * * *"  # daily-summary   (21:30 / 22:30)
     - cron: "0 8 1 * *"    # monthly-report  (1st of the month, 09:00 / 10:00)
+    - cron: "0 5 * * *"    # recurring       (creates due recurring incomes/expenses, 06:00 / 07:00)
   workflow_dispatch:
     inputs:
       job:
         description: Job to run
         required: true
         type: choice
-        options: [daily-reminder, daily-summary, monthly-report]
+        options: [daily-reminder, daily-summary, monthly-report, recurring]
 
 env:
   API_URL: https://money-manager-t0yw.onrender.com/api/v1.0
@@ -31,6 +32,7 @@ jobs:
             "0 19 * * *")  job=daily-reminder ;;
             "30 20 * * *") job=daily-summary ;;
             "0 8 1 * *")   job=monthly-report ;;
+            "0 5 * * *")   job=recurring ;;
             *)             job="${{ inputs.job }}" ;;
           esac
           echo "job=$job" >> "$GITHUB_OUTPUT"

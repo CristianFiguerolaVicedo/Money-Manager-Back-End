@@ -36,7 +36,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
             "/unsubscribe", new Rule(20, Duration.ofHours(1)),
             "/internal/jobs/daily-reminder", new Rule(10, Duration.ofHours(1)),
             "/internal/jobs/daily-summary", new Rule(10, Duration.ofHours(1)),
-            "/internal/jobs/monthly-report", new Rule(10, Duration.ofHours(1))
+            "/internal/jobs/monthly-report", new Rule(10, Duration.ofHours(1)),
+            "/internal/jobs/recurring", new Rule(10, Duration.ofHours(1))
     );
 
     private final RateLimiter rateLimiter;

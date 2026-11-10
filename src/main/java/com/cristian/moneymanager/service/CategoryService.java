@@ -6,6 +6,7 @@ import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.exception.CategoryInUseException;
 import com.cristian.moneymanager.repository.BudgetRepository;
 import com.cristian.moneymanager.repository.CategoryRepository;
+import com.cristian.moneymanager.repository.RecurringRepository;
 import com.cristian.moneymanager.repository.ExpenseRepository;
 import com.cristian.moneymanager.repository.IncomeRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final BudgetRepository budgetRepository;
+    private final RecurringRepository recurringRepository;
     private final IncomeRepository incomeRepository;
     private final ExpenseRepository expenseRepository;
     private final ProfileService profileService;
@@ -86,7 +88,8 @@ public class CategoryService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Categoría no encontrada"));
 
         boolean isIncome = "income".equalsIgnoreCase(category.getType());
-        long count = isIncome ? incomeRepository.countByCategoryId(id) : expenseRepository.countByCategoryId(id);
+        long count = (isIncome ? incomeRepository.countByCategoryId(id) : expenseRepository.countByCategoryId(id))
+                + recurringRepository.countByCategoryId(id);
 
         if (count > 0) {
             if (reassignToId == null) {
@@ -100,6 +103,7 @@ public class CategoryService {
             if (!category.getType().equalsIgnoreCase(target.getType())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La categoría de destino debe ser del mismo tipo");
             }
+            recurringRepository.reassignCategory(id, target);
             if (isIncome) {
                 incomeRepository.reassignCategory(id, target);
             } else {

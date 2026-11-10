@@ -13,6 +13,7 @@ import com.cristian.moneymanager.repository.CategoryRepository;
 import com.cristian.moneymanager.repository.ExpenseRepository;
 import com.cristian.moneymanager.repository.IncomeRepository;
 import com.cristian.moneymanager.repository.ProfileRepository;
+import com.cristian.moneymanager.repository.RecurringRepository;
 import com.cristian.moneymanager.security.RateLimiter;
 import com.cristian.moneymanager.util.InputRules;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,7 @@ public class AccountService {
     private final ExpenseRepository expenseRepository;
     private final CategoryRepository categoryRepository;
     private final BudgetRepository budgetRepository;
+    private final RecurringRepository recurringRepository;
     private final PasswordEncoder passwordEncoder;
     private final RateLimiter rateLimiter;
     private final EmailService emailService;
@@ -115,6 +117,7 @@ public class AccountService {
 
         Long profileId = profile.getId();
         budgetRepository.deleteByProfileId(profileId);
+        recurringRepository.deleteByProfileId(profileId);
         incomeRepository.deleteByProfileId(profileId);
         expenseRepository.deleteByProfileId(profileId);
         categoryRepository.deleteByProfileId(profileId);
