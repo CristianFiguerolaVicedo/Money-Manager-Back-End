@@ -8,6 +8,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
@@ -35,6 +36,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleCategoryInUse(CategoryInUseException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("message", e.getMessage(), "transactionCount", e.getTransactionCount()));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleTooLarge(MaxUploadSizeExceededException e) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(Map.of("message", "El archivo pasa de 2 MB"));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

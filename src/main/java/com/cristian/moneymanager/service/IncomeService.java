@@ -30,6 +30,7 @@ public class IncomeService {
 
     private final CategoryRepository categoryRepository;
     private final IncomeRepository incomeRepository;
+    private final com.cristian.moneymanager.repository.AttachmentRepository attachmentRepository;
     private final ProfileService profileService;
 
     public IncomeDto addIncome(IncomeDto dto) {
@@ -53,9 +54,9 @@ public class IncomeService {
         List<IncomeEntity> list = incomeRepository.findByProfileIdAndDateBetweenOrderByDateDescIdDesc(
                 profile.getId(), month.atDay(1), month.atEndOfMonth());
 
-        return list.stream()
+        return withAttachmentCounts(list.stream()
                 .map(this::toDto)
-                .toList();
+                .toList());
     }
 
     public IncomeDto updateIncome(Long id, IncomeDto dto) {
@@ -77,6 +78,7 @@ public class IncomeService {
             entity.setDate(dto.getDate());
         }
         entity.setCategory(category);
+        entity.setNote(cleanNote(dto.getNote()));
 
         return toDto(incomeRepository.save(entity));
     }
@@ -98,7 +100,7 @@ public class IncomeService {
         ProfileEntity profile = profileService.getCurrentProfile();
         Page<IncomeEntity> page = incomeRepository.findByProfileIdAndDateBetweenAndNameContainingIgnoreCase(profile.getId(), startDate, endDate, keyword, pageable);
         BigDecimal total = incomeRepository.sumForSearch(profile.getId(), startDate, endDate, LikeEscape.escape(keyword));
-        return new PageDto<>(page.getContent().stream().map(this::toDto).toList(),
+        return new PageDto<>(withAttachmentCounts(page.getContent().stream().map(this::toDto).toList()),
                 page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages(), total);
     }
 
@@ -143,6 +145,9 @@ public class IncomeService {
     }
 
     private void validate(IncomeDto dto) {
+        if (dto.getNote() != null && dto.getNote().trim().length() > 500) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La nota no puede pasar de 500 caracteres");
+        }
         if (dto.getName() == null || dto.getName().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre es obligatorio");
         }
@@ -159,6 +164,7 @@ public class IncomeService {
 
     private IncomeEntity toEntity(IncomeDto dto, ProfileEntity profile, CategoryEntity category) {
         return IncomeEntity.builder()
+                .note(cleanNote(dto.getNote()))
                 .name(dto.getName())
                 .icon(dto.getIcon())
                 .amount(dto.getAmount())
@@ -180,6 +186,24 @@ public class IncomeService {
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .recurringId(entity.getRecurringId())
+                .note(entity.getNote())
                 .build();
+    }
+
+    private static String cleanNote(String note) {
+        return note == null || note.isBlank() ? null : note.trim();
+    }
+
+    /** Fills attachmentCount with one query for the whole list. */
+    private List<IncomeDto> withAttachmentCounts(List<IncomeDto> list) {
+        if (list.isEmpty()) {
+            return list;
+        }
+        java.util.Map<Long, Long> counts = new java.util.HashMap<>();
+        for (Object[] row : attachmentRepository.countByIncomeIds(list.stream().map(IncomeDto::getId).toList())) {
+            counts.put((Long) row[0], (Long) row[1]);
+        }
+        list.forEach(dto -> dto.setAttachmentCount(counts.getOrDefault(dto.getId(), 0L).intValue()));
+        return list;
     }
 }

@@ -29,6 +29,7 @@ public class ExpenseService {
 
     private final CategoryRepository categoryRepository;
     private final ExpenseRepository expenseRepository;
+    private final com.cristian.moneymanager.repository.AttachmentRepository attachmentRepository;
     private final ProfileService profileService;
 
     public ExpenseDto addExpense(ExpenseDto dto) {
@@ -52,9 +53,9 @@ public class ExpenseService {
         List<ExpenseEntity> list = expenseRepository.findByProfileIdAndDateBetweenOrderByDateDescIdDesc(
                 profile.getId(), month.atDay(1), month.atEndOfMonth());
 
-        return list.stream()
+        return withAttachmentCounts(list.stream()
                 .map(this::toDto)
-                .toList();
+                .toList());
     }
 
     public ExpenseDto updateExpense(Long id, ExpenseDto dto) {
@@ -76,6 +77,7 @@ public class ExpenseService {
             entity.setDate(dto.getDate());
         }
         entity.setCategory(category);
+        entity.setNote(cleanNote(dto.getNote()));
 
         return toDto(expenseRepository.save(entity));
     }
@@ -97,7 +99,7 @@ public class ExpenseService {
         ProfileEntity profile = profileService.getCurrentProfile();
         Page<ExpenseEntity> page = expenseRepository.findByProfileIdAndDateBetweenAndNameContainingIgnoreCase(profile.getId(), startDate, endDate, keyword, pageable);
         BigDecimal total = expenseRepository.sumForSearch(profile.getId(), startDate, endDate, LikeEscape.escape(keyword));
-        return new PageDto<>(page.getContent().stream().map(this::toDto).toList(),
+        return new PageDto<>(withAttachmentCounts(page.getContent().stream().map(this::toDto).toList()),
                 page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages(), total);
     }
 
@@ -151,6 +153,9 @@ public class ExpenseService {
     }
 
     private void validate(ExpenseDto dto) {
+        if (dto.getNote() != null && dto.getNote().trim().length() > 500) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La nota no puede pasar de 500 caracteres");
+        }
         if (dto.getName() == null || dto.getName().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre es obligatorio");
         }
@@ -167,6 +172,7 @@ public class ExpenseService {
 
     private ExpenseEntity toEntity(ExpenseDto dto, ProfileEntity profile, CategoryEntity category) {
         return ExpenseEntity.builder()
+                .note(cleanNote(dto.getNote()))
                 .name(dto.getName())
                 .icon(dto.getIcon())
                 .amount(dto.getAmount())
@@ -188,6 +194,24 @@ public class ExpenseService {
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .recurringId(entity.getRecurringId())
+                .note(entity.getNote())
                 .build();
+    }
+
+    private static String cleanNote(String note) {
+        return note == null || note.isBlank() ? null : note.trim();
+    }
+
+    /** Fills attachmentCount with one query for the whole list. */
+    private List<ExpenseDto> withAttachmentCounts(List<ExpenseDto> list) {
+        if (list.isEmpty()) {
+            return list;
+        }
+        java.util.Map<Long, Long> counts = new java.util.HashMap<>();
+        for (Object[] row : attachmentRepository.countByExpenseIds(list.stream().map(ExpenseDto::getId).toList())) {
+            counts.put((Long) row[0], (Long) row[1]);
+        }
+        list.forEach(dto -> dto.setAttachmentCount(counts.getOrDefault(dto.getId(), 0L).intValue()));
+        return list;
     }
 }

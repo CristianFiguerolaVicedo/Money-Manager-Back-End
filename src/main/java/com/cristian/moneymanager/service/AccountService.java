@@ -8,6 +8,7 @@ import com.cristian.moneymanager.dto.ProfileDto;
 import com.cristian.moneymanager.email.EmailTemplate;
 import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.exception.ApiException;
+import com.cristian.moneymanager.repository.AttachmentRepository;
 import com.cristian.moneymanager.repository.BudgetRepository;
 import com.cristian.moneymanager.repository.CategoryRepository;
 import com.cristian.moneymanager.repository.ExpenseRepository;
@@ -45,6 +46,7 @@ public class AccountService {
     private final ExpenseRepository expenseRepository;
     private final CategoryRepository categoryRepository;
     private final BudgetRepository budgetRepository;
+    private final AttachmentRepository attachmentRepository;
     private final GoalRepository goalRepository;
     private final GoalContributionRepository goalContributionRepository;
     private final RecurringRepository recurringRepository;
@@ -120,6 +122,7 @@ public class AccountService {
         checkPassword(profile, request == null ? null : request.password());
 
         Long profileId = profile.getId();
+        attachmentRepository.deleteByProfileId(profileId);
         goalContributionRepository.deleteByProfileId(profileId);
         goalRepository.deleteByProfileId(profileId);
         budgetRepository.deleteByProfileId(profileId);

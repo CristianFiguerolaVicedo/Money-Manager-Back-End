@@ -15,21 +15,21 @@ import java.util.List;
 @Service
 public class ExcelService {
 
-    private static final String[] HEADERS = {"Nº", "Nombre", "Categoría", "Importe", "Fecha"};
+    private static final String[] HEADERS = {"Nº", "Nombre", "Categoría", "Importe", "Fecha", "Nota"};
 
     public void writeIncomesToExcel(OutputStream os, List<IncomeDto> incomes) throws IOException {
         writeRows(os, "Ingresos", incomes.stream()
-                .map(i -> new RowData(i.getName(), i.getCategoryId() != null ? i.getCategoryName() : null, i.getAmount(), i.getDate()))
+                .map(i -> new RowData(i.getName(), i.getCategoryId() != null ? i.getCategoryName() : null, i.getAmount(), i.getDate(), i.getNote()))
                 .toList());
     }
 
     public void writeExpensesToExcel(OutputStream os, List<ExpenseDto> expenses) throws IOException {
         writeRows(os, "Gastos", expenses.stream()
-                .map(e -> new RowData(e.getName(), e.getCategoryId() != null ? e.getCategoryName() : null, e.getAmount(), e.getDate()))
+                .map(e -> new RowData(e.getName(), e.getCategoryId() != null ? e.getCategoryName() : null, e.getAmount(), e.getDate(), e.getNote()))
                 .toList());
     }
 
-    private record RowData(String name, String category, BigDecimal amount, LocalDate date) {
+    private record RowData(String name, String category, BigDecimal amount, LocalDate date, String note) {
     }
 
     private void writeRows(OutputStream os, String sheetName, List<RowData> rows) throws IOException {
@@ -73,11 +73,14 @@ public class ExcelService {
                 } else {
                     date.setCellValue("N/A");
                 }
+                if (data.note() != null) {
+                    row.createCell(5).setCellValue(data.note());
+                }
             }
 
             // Fixed widths (in 1/256 of a character): autoSizeColumn needs system fonts,
             // which minimal server containers may not have
-            int[] widths = {6, 30, 20, 14, 12};
+            int[] widths = {6, 30, 20, 14, 12, 40};
             for (int c = 0; c < widths.length; c++) {
                 sheet.setColumnWidth(c, widths[c] * 256);
             }
