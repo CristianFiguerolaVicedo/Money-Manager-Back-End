@@ -1,5 +1,6 @@
 package com.cristian.moneymanager.security;
 
+import com.cristian.moneymanager.repository.ProfileRepository;
 import com.cristian.moneymanager.util.JwtUtil;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -26,6 +27,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
     private final UserDetailsService userDetailsService;
     private final JwtUtil jwtUtil;
+    private final ProfileRepository profileRepository;
 
 
     @Override
@@ -43,7 +45,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                String email = jwtUtil.extractUsername(jwt);
                if (email != null) {
                    UserDetails userDetails = this.userDetailsService.loadUserByUsername(email);
-                   if (jwtUtil.validateToken(jwt, userDetails)) {
+                   if (jwtUtil.validateToken(jwt, userDetails) && !revoked(jwt, email)) {
                        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                                userDetails,
                                null,
@@ -62,5 +64,18 @@ public class JwtRequestFilter extends OncePerRequestFilter {
        }
 
        filterChain.doFilter(request, response);
+    }
+
+    /** A token issued before a password change/reset ("log out everywhere") is no longer valid. */
+    private boolean revoked(String jwt, String email) {
+        java.time.LocalDateTime validAfter = profileRepository.findByEmail(email)
+                .map(profile -> profile.getTokensValidAfter())
+                .orElse(null);
+        if (validAfter == null) {
+            return false;
+        }
+        java.util.Date issuedAt = jwtUtil.extractIssuedAt(jwt);
+        return issuedAt == null
+                || issuedAt.toInstant().isBefore(validAfter.atZone(java.time.ZoneId.systemDefault()).toInstant());
     }
 }

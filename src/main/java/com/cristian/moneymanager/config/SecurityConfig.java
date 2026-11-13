@@ -39,7 +39,9 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
         httpSecurity.cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(auth -> auth.requestMatchers("/status", "/health", "/register", "/activate", "/login", "/forgot-password", "/reset-password", "/resend-activation", "/unsubscribe", "/internal/jobs/**").permitAll()
+                // Our own POST /logout revokes the refresh cookie; Spring's default logout filter would intercept it
+                .logout(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth.requestMatchers("/status", "/health", "/register", "/activate", "/login", "/forgot-password", "/reset-password", "/resend-activation", "/unsubscribe", "/refresh-token", "/logout", "/internal/jobs/**").permitAll()
                         .anyRequest().authenticated())
                         .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

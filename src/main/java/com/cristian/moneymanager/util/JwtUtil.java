@@ -69,6 +69,15 @@ public class JwtUtil {
                 .getSubject();
     }
 
+    /** When the token was issued (second precision), or null if it cannot be read. */
+    public Date extractIssuedAt(String jwt) {
+        try {
+            return Jwts.parserBuilder().setSigningKey(signingKey).build().parseClaimsJws(jwt).getBody().getIssuedAt();
+        } catch (JwtException | IllegalArgumentException e) {
+            return null;
+        }
+    }
+
     public boolean validateToken(String jwt, UserDetails userDetails) {
         try {
             Claims claims = Jwts.parserBuilder()

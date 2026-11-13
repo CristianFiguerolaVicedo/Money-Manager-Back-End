@@ -159,6 +159,11 @@ public class ProfileService {
                 .orElse(false);
     }
 
+    public ProfileEntity getProfileByEmail(String email) {
+        return profileRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Profile not found with email: " + email));
+    }
+
     public ProfileEntity getCurrentProfile() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return profileRepository.findByEmail(authentication.getName())
@@ -205,12 +210,12 @@ public class ProfileService {
     }
 
     /** New token for the logged-in user (the old one keeps working until it expires). */
-    public Map<String, Object> refreshToken() {
-        ProfileEntity profile = getCurrentProfile();
-        if (!Boolean.TRUE.equals(profile.getIsActive())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_NOT_ACTIVE", "Tu cuenta no está activada.");
-        }
-        return Map.of("token", jwtUtil.generateToken(profile.getEmail()));
+    /** New short-lived access token plus the user, after a refresh token was accepted. */
+    public Map<String, Object> sessionFor(ProfileEntity profile) {
+        return Map.of(
+                "token", jwtUtil.generateToken(profile.getEmail()),
+                "user", toDto(profile)
+        );
     }
 
     /**
