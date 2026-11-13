@@ -1,5 +1,10 @@
 package com.cristian.moneymanager;
 
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.http.HttpMethod;
+import com.jayway.jsonpath.JsonPath;
 import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.repository.CategoryRepository;
 import com.cristian.moneymanager.repository.ExpenseRepository;
@@ -33,6 +38,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @EnabledIfEnvironmentVariable(named = "POSTGRESQL_URL", matches = "jdbc:postgresql:.*")
 class AccountFlowTests {
 
+    private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, 'I', 'H', 'D', 'R'};
+
     private static final String PASSWORD = "abcdefg1";
 
     @Autowired private MockMvc mockMvc;
@@ -63,16 +70,39 @@ class AccountFlowTests {
 
     @Test
     void updatesNameAndPhoto() throws Exception {
-        mockMvc.perform(auth(put("/profile"))
-                        .content("{\"fullName\":\"  Ana López \",\"profileImageUrl\":\"https://res.cloudinary.com/x/a.png\"}"))
+        mockMvc.perform(auth(put("/profile")).content("{\"fullName\":\"  Ana López \"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.fullName").value("Ana López"))
-                .andExpect(jsonPath("$.profileImageUrl").value("https://res.cloudinary.com/x/a.png"));
-
-        mockMvc.perform(auth(put("/profile")).content("{\"fullName\":\"Ana\",\"profileImageUrl\":\"javascript:alert(1)\"}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(jsonPath("$.fullName").value("Ana López"));
         mockMvc.perform(auth(put("/profile")).content("{\"fullName\":\" \"}"))
                 .andExpect(status().isBadRequest());
+
+        // The photo is uploaded to the backend (no more unsigned Cloudinary uploads) and served from a random URL
+        String url = JsonPath.read(mockMvc.perform(multipart(HttpMethod.PUT, "/profile/photo")
+                        .file(new MockMultipartFile("file", "yo.png", "image/png", PNG))
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(), "$.profileImageUrl");
+        assertThat(url).startsWith("/api/v1.0/profile-photos/");
+        String photoPath = url.substring("/api/v1.0".length());
+        mockMvc.perform(get(photoPath))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"));
+
+        // Only images, and no external URLs through PUT /profile
+        mockMvc.perform(multipart(HttpMethod.PUT, "/profile/photo")
+                        .file(new MockMultipartFile("file", "x.png", "image/png", "<svg onload=alert(1)>padding".getBytes()))
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(auth(put("/profile")).content("{\"fullName\":\"Ana\",\"profileImageUrl\":\"https://evil.example/pixel.png\"}"))
+                .andExpect(status().isBadRequest());
+
+        // Saving the name keeps the photo; sending no photo removes it
+        mockMvc.perform(auth(put("/profile")).content("{\"fullName\":\"Ana\",\"profileImageUrl\":\"" + url + "\"}"))
+                .andExpect(jsonPath("$.profileImageUrl").value(url));
+        mockMvc.perform(auth(put("/profile")).content("{\"fullName\":\"Ana\",\"profileImageUrl\":null}"))
+                .andExpect(jsonPath("$.profileImageUrl").doesNotExist());
+        mockMvc.perform(get(photoPath)).andExpect(status().isNotFound());
     }
 
     @Test

@@ -189,7 +189,7 @@ public class ProfileService {
                 .fullName(profileDto.getFullName())
                 .email(profileDto.getEmail())
                 .password(passwordEncoder.encode(profileDto.getPassword()))
-                .profileImageUrl(profileDto.getProfileImageUrl())
+                .profileImageUrl(null) // photos are uploaded later from the profile page (PUT /profile/photo)
                 .createdAt(profileDto.getCreatedAt())
                 .updatedAt(profileDto.getUpdatedAt())
                 .build();

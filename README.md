@@ -48,7 +48,7 @@ src/main/resources/
 └── db/migration/                 V1, V2… (esquema versionado)
 ```
 
-Todas las rutas cuelgan de `/api/v1.0`. Son públicas `/health`, `/status`, `/register`, `/activate`, `/login`, `/refresh-token`, `/logout`, `/forgot-password`, `/reset-password`, `/resend-activation` y `/unsubscribe`; `/internal/jobs/*` se protege con su propio secreto. El resto necesita la cabecera `Authorization: Bearer <token>`.
+Todas las rutas cuelgan de `/api/v1.0`. Son públicas `/health`, `/status`, `/register`, `/activate`, `/login`, `/refresh-token`, `/logout`, `/forgot-password`, `/reset-password`, `/resend-activation`, `/unsubscribe` y `/profile-photos/{clave}` (la clave es aleatoria y cambia con cada foto); `/internal/jobs/*` se protege con su propio secreto. El resto necesita la cabecera `Authorization: Bearer <token>`.
 
 ## Sesión
 
@@ -91,6 +91,13 @@ export MONEY_MANAGER_FRONTEND_URL=http://localhost:5173
 
 La API queda en `http://localhost:8080/api/v1.0` (comprueba `GET /health`). Flyway crea las tablas al arrancar. Sin `BREVO_API_KEY` los emails no se envían, así que para activar una cuenta de prueba pon `is_active = true` en `tbl_profiles`.
 
+## Seguridad de los datos
+
+- Cada consulta filtra por el usuario de la sesión. `UserIsolationTests` crea dos cuentas y comprueba que una no puede leer, cambiar ni borrar nada de la otra (categorías, movimientos, presupuestos, objetivos, recurrentes y adjuntos).
+- Los importes se redondean a 2 decimales en el servidor y tienen un máximo de 999.999.999,99 €.
+- Los adjuntos y las fotos se validan por sus primeros bytes, no por el nombre (JPG, PNG, WebP y PDF; 2 MB por adjunto y 1 MB por foto).
+- Las fotos de perfil se suben al backend (`PUT /profile/photo`); ya no se usa Cloudinary.
+
 ## Tests
 
 ```bash
@@ -115,6 +122,7 @@ El esquema está versionado en `src/main/resources/db/migration` y Hibernate sol
 | V4 | Objetivos de ahorro |
 | V5 | Notas y archivos adjuntos |
 | V6 | Refresh tokens de sesión y `tokens_valid_after` en perfiles |
+| V7 | Fotos de perfil guardadas en la base de datos |
 
 ## Tareas programadas
 
