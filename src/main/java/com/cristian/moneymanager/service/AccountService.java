@@ -17,6 +17,7 @@ import com.cristian.moneymanager.repository.GoalRepository;
 import com.cristian.moneymanager.repository.IncomeRepository;
 import com.cristian.moneymanager.repository.ProfileRepository;
 import com.cristian.moneymanager.repository.RecurringRepository;
+import com.cristian.moneymanager.repository.RefreshTokenRepository;
 import com.cristian.moneymanager.security.RateLimiter;
 import com.cristian.moneymanager.util.InputRules;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +51,8 @@ public class AccountService {
     private final GoalRepository goalRepository;
     private final GoalContributionRepository goalContributionRepository;
     private final RecurringRepository recurringRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenService refreshTokenService;
     private final PasswordEncoder passwordEncoder;
     private final RateLimiter rateLimiter;
     private final EmailService emailService;
@@ -64,7 +67,7 @@ public class AccountService {
         return profileService.toDto(profileRepository.save(profile));
     }
 
-    public void changePassword(ChangePasswordRequest request) {
+    public ProfileEntity changePassword(ChangePasswordRequest request) {
         if (request == null) {
             throw badRequest("Faltan las contraseñas");
         }
@@ -80,8 +83,11 @@ public class AccountService {
         profile.setPasswordResetTokenHash(null);
         profile.setPasswordResetExpiresAt(null);
         profileRepository.save(profile);
+        // Closes every session (refresh tokens and the access tokens issued so far)
+        refreshTokenService.revokeAll(profile);
 
         notifyPasswordChanged(profile);
+        return profile;
     }
 
     /** Turns the optional scheduled emails on or off (fields left null keep their value). */
@@ -122,6 +128,7 @@ public class AccountService {
         checkPassword(profile, request == null ? null : request.password());
 
         Long profileId = profile.getId();
+        refreshTokenRepository.deleteByProfileId(profileId);
         attachmentRepository.deleteByProfileId(profileId);
         goalContributionRepository.deleteByProfileId(profileId);
         goalRepository.deleteByProfileId(profileId);

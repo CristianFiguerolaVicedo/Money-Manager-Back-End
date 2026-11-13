@@ -27,20 +27,22 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private record Rule(int limit, Duration window) {
     }
 
-    private static final Map<String, Rule> RULES = Map.of(
-            "/login", new Rule(10, Duration.ofMinutes(5)),
-            "/register", new Rule(5, Duration.ofHours(1)),
-            "/forgot-password", new Rule(5, Duration.ofHours(1)),
-            "/resend-activation", new Rule(5, Duration.ofHours(1)),
-            "/reset-password", new Rule(10, Duration.ofHours(1)),
-            "/unsubscribe", new Rule(20, Duration.ofHours(1)),
-            "/internal/jobs/daily-reminder", new Rule(10, Duration.ofHours(1)),
-            "/internal/jobs/daily-summary", new Rule(10, Duration.ofHours(1)),
-            "/internal/jobs/monthly-report", new Rule(10, Duration.ofHours(1)),
-            "/internal/jobs/recurring", new Rule(10, Duration.ofHours(1))
+    private static final Map<String, Rule> RULES = Map.ofEntries(
+            Map.entry("/login", new Rule(10, Duration.ofMinutes(5))),
+            Map.entry("/register", new Rule(5, Duration.ofHours(1))),
+            Map.entry("/forgot-password", new Rule(5, Duration.ofHours(1))),
+            Map.entry("/resend-activation", new Rule(5, Duration.ofHours(1))),
+            Map.entry("/reset-password", new Rule(10, Duration.ofHours(1))),
+            Map.entry("/refresh-token", new Rule(60, Duration.ofMinutes(5))),
+            Map.entry("/unsubscribe", new Rule(20, Duration.ofHours(1))),
+            Map.entry("/internal/jobs/daily-reminder", new Rule(10, Duration.ofHours(1))),
+            Map.entry("/internal/jobs/daily-summary", new Rule(10, Duration.ofHours(1))),
+            Map.entry("/internal/jobs/monthly-report", new Rule(10, Duration.ofHours(1))),
+            Map.entry("/internal/jobs/recurring", new Rule(10, Duration.ofHours(1)))
     );
 
     private final RateLimiter rateLimiter;
+    private final ClientIpResolver clientIpResolver;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -52,11 +54,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String path = path(request);
         Rule rule = RULES.get(path);
-        String key = "ip:" + path + ":" + clientIp(request);
+        String key = "ip:" + path + ":" + clientIpResolver.resolve(request);
 
         if (!rateLimiter.tryAcquire(key, rule.limit(), rule.window())) {
             long retryAfter = rateLimiter.secondsUntilReset(key, rule.window());
-            log.warn("Rate limit hit on {} from {}", path, clientIp(request));
+            log.warn("Rate limit hit on {} from {}", path, clientIpResolver.resolve(request));
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setHeader("Retry-After", String.valueOf(retryAfter));
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
@@ -73,22 +75,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String uri = request.getRequestURI();
         String context = request.getContextPath();
         return context != null && uri.startsWith(context) ? uri.substring(context.length()) : uri;
-    }
-
-    /**
-     * Real client IP behind Render's proxy. Render passes it in True-Client-IP / X-Forwarded-For;
-     * we fall back to the socket address when running locally.
-     */
-    static String clientIp(HttpServletRequest request) {
-        String trueClientIp = request.getHeader("True-Client-IP");
-        if (trueClientIp != null && !trueClientIp.isBlank()) {
-            return trueClientIp.trim();
-        }
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
     }
 
     static String humanize(long seconds) {

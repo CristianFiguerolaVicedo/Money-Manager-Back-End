@@ -35,6 +35,7 @@ public class PasswordResetService {
     private static final Duration TOKEN_VALIDITY = Duration.ofHours(1);
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    private final RefreshTokenService refreshTokenService;
     private final ProfileRepository profileRepository;
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
@@ -86,6 +87,8 @@ public class PasswordResetService {
         profile.setPassword(passwordEncoder.encode(newPassword));
         profile.setPasswordResetTokenHash(null);
         profile.setPasswordResetExpiresAt(null);
+        // Whoever knew the old password loses access: every session is closed
+        refreshTokenService.revokeAll(profile);
         // Receiving the email proves the address is theirs, so an unactivated account becomes active
         if (!Boolean.TRUE.equals(profile.getIsActive())) {
             profile.setIsActive(true);

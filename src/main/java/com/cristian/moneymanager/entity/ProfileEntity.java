@@ -46,6 +46,9 @@ public class ProfileEntity {
     /** Random token for the "unsubscribe" link in scheduled emails (works without logging in). */
     private String emailUnsubscribeToken;
 
+    /** Access tokens issued before this moment are no longer accepted (password change/reset). */
+    private LocalDateTime tokensValidAfter;
+
     @PrePersist
     public void prePersist() {
         if (this.isActive == null) {
