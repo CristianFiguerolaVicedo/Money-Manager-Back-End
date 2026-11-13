@@ -39,5 +39,9 @@ public class RefreshTokenEntity {
     @CreationTimestamp
     private LocalDateTime createdAt;
 
+    /** Set when a rotation replaced this token. Reusing it after the grace period means it was copied. */
+    private LocalDateTime replacedAt;
+
+    /** Set on logout, password change or detected theft. The token is never accepted again. */
     private LocalDateTime revokedAt;
 }

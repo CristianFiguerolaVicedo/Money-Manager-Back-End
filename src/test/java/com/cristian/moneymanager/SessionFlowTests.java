@@ -90,9 +90,9 @@ class SessionFlowTests {
         // Pretend the first token was rotated long ago (outside the grace period for two open tabs)
         Long profileId = profileRepository.findByEmail(email).orElseThrow().getId();
         refreshTokenRepository.findAll().stream()
-                .filter(t -> t.getRevokedAt() != null && t.getProfile().getId().equals(profileId))
+                .filter(t -> t.getReplacedAt() != null && t.getProfile().getId().equals(profileId))
                 .forEach(t -> {
-                    t.setRevokedAt(LocalDateTime.now().minusMinutes(5));
+                    t.setReplacedAt(LocalDateTime.now().minusMinutes(5));
                     refreshTokenRepository.save(t);
                 });
 

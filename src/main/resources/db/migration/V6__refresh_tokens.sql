@@ -8,7 +8,8 @@ create table if not exists tbl_refresh_tokens (
     family_id varchar(36) not null,
     expires_at timestamp(6) not null,
     created_at timestamp(6),
-    revoked_at timestamp(6)
+    replaced_at timestamp(6), -- rotated: a newer token of the same family took its place
+    revoked_at timestamp(6)   -- logged out / password changed: never valid again
 );
 create index if not exists idx_refresh_tokens_profile on tbl_refresh_tokens (profile_id);
 create index if not exists idx_refresh_tokens_family on tbl_refresh_tokens (family_id);

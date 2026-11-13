@@ -8,7 +8,7 @@ API REST de **Money Manager**, una aplicación para llevar tus ingresos y gastos
 
 ## Qué hace
 
-- Cuentas con activación por email, inicio de sesión con JWT, recuperación de contraseña, límite de intentos y borrado de cuenta.
+- Cuentas con activación por email, sesión renovable (JWT de 15 min + cookie HttpOnly de 30 días), recuperación de contraseña, límite de intentos y borrado de cuenta.
 - Ingresos y gastos por categorías, con nota y archivos adjuntos (tickets o facturas en imagen o PDF).
 - Movimientos recurrentes (semanales, mensuales o anuales) que se crean solos.
 - Presupuestos mensuales por categoría y objetivos de ahorro con aportaciones.
@@ -22,7 +22,7 @@ API REST de **Money Manager**, una aplicación para llevar tus ingresos y gastos
 |---|---|
 | Lenguaje y framework | Java 21, Spring Boot 3.5 (Web, Security, Data JPA) |
 | Base de datos | PostgreSQL ([Neon](https://neon.com) en producción), migraciones con Flyway |
-| Autenticación | JWT (HS256) sin estado |
+| Autenticación | JWT (HS256) de 15 min + refresh token rotatorio en cookie HttpOnly |
 | Emails | API HTTP de [Brevo](https://www.brevo.com) |
 | Excel | Apache POI |
 | Tests | JUnit 5, Spring Boot Test y MockMvc contra un PostgreSQL real |
@@ -48,7 +48,16 @@ src/main/resources/
 └── db/migration/                 V1, V2… (esquema versionado)
 ```
 
-Todas las rutas cuelgan de `/api/v1.0`. Son públicas `/health`, `/status`, `/register`, `/activate`, `/login`, `/forgot-password`, `/reset-password`, `/resend-activation` y `/unsubscribe`; `/internal/jobs/*` se protege con su propio secreto. El resto necesita la cabecera `Authorization: Bearer <token>`.
+Todas las rutas cuelgan de `/api/v1.0`. Son públicas `/health`, `/status`, `/register`, `/activate`, `/login`, `/refresh-token`, `/logout`, `/forgot-password`, `/reset-password`, `/resend-activation` y `/unsubscribe`; `/internal/jobs/*` se protege con su propio secreto. El resto necesita la cabecera `Authorization: Bearer <token>`.
+
+## Sesión
+
+1. `POST /login` devuelve un JWT de acceso de **15 minutos** (la web lo guarda solo en memoria, nunca en `localStorage`) y pone la cookie `mm_session` (`HttpOnly; Secure; SameSite=Strict`, 30 días).
+2. Antes de que caduque, o al recargar la página, la web llama a `POST /refresh-token`: la cookie se **rota** (la anterior queda sustituida) y llega un JWT nuevo.
+3. Si alguien presenta una cookie ya sustituida hace más de 30 s, se entiende que la copiaron y se cierra toda esa sesión.
+4. `POST /logout` revoca la cookie. Cambiar o restablecer la contraseña cierra la sesión en todos los dispositivos (también invalida los JWT ya emitidos).
+
+La web llama a la API a través del proxy de Netlify (`/api/*` en su mismo dominio), así la cookie es de primera parte y funciona también en Safari. Solo se guarda el hash SHA-256 de cada refresh token.
 
 ## Variables de entorno
 
@@ -62,6 +71,8 @@ Todas las rutas cuelgan de `/api/v1.0`. Son públicas `/health`, `/status`, `/re
 | `BREVO_SENDER_EMAIL` | No | Remitente verificado en Brevo |
 | `CORS_ALLOWED_ORIGINS` | No | Orígenes permitidos (por defecto la web, sus vistas previas de Netlify y `localhost`) |
 | `JOBS_SECRET` | Para los emails programados | Debe coincidir con el secreto `JOBS_SECRET` del repositorio en GitHub |
+| `NETLIFY_PROXY_SECRET` | Recomendada | El mismo valor que en Netlify (al menos 32 caracteres). Sirve para fiarse de la IP real que manda el proxy firmado y que el límite de peticiones vaya por usuario |
+| `APP_COOKIE_SECURE` | No | `true` por defecto. Ponla a `false` solo en local si pruebas sin HTTPS |
 
 ## Ejecutar en local
 
@@ -103,6 +114,7 @@ El esquema está versionado en `src/main/resources/db/migration` y Hibernate sol
 | V3 | Movimientos recurrentes |
 | V4 | Objetivos de ahorro |
 | V5 | Notas y archivos adjuntos |
+| V6 | Refresh tokens de sesión y `tokens_valid_after` en perfiles |
 
 ## Tareas programadas
 

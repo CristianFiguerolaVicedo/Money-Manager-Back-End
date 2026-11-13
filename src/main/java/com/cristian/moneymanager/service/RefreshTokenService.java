@@ -62,22 +62,23 @@ public class RefreshTokenService {
         LocalDateTime now = now();
         ProfileEntity profile = token.getProfile();
 
-        if (token.getRevokedAt() != null) {
-            boolean concurrentRefresh = token.getRevokedAt().isAfter(now.minus(ROTATION_GRACE));
+        if (token.getRevokedAt() != null || token.getExpiresAt().isBefore(now)) {
+            throw unauthorized();
+        }
+        if (token.getReplacedAt() != null) {
+            boolean concurrentRefresh = token.getReplacedAt().isAfter(now.minus(ROTATION_GRACE));
             if (!concurrentRefresh) {
                 log.warn("Reused refresh token for profile {}: revoking its session family", profile.getId());
                 refreshTokenRepository.revokeFamily(token.getFamilyId(), now);
                 throw unauthorized();
             }
-        } else if (token.getExpiresAt().isBefore(now)) {
-            throw unauthorized();
         }
         if (!Boolean.TRUE.equals(profile.getIsActive())) {
             throw unauthorized();
         }
 
-        if (token.getRevokedAt() == null) {
-            token.setRevokedAt(now);
+        if (token.getReplacedAt() == null) {
+            token.setReplacedAt(now);
             refreshTokenRepository.save(token);
         }
         return new Issued(create(profile, token.getFamilyId()), profile);
