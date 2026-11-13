@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
@@ -27,6 +28,9 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class IncomeService {
+
+    static final BigDecimal MAX_AMOUNT = new BigDecimal("999999999.99");
+    static final int MAX_NAME_LENGTH = 255;
 
     private final CategoryRepository categoryRepository;
     private final IncomeRepository incomeRepository;
@@ -154,9 +158,18 @@ public class IncomeService {
         if (dto.getCategoryId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La categoría es obligatoria");
         }
-        if (dto.getAmount() == null || dto.getAmount().signum() <= 0) {
+        if (dto.getName().trim().length() > MAX_NAME_LENGTH) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre es demasiado largo (máximo " + MAX_NAME_LENGTH + " caracteres)");
+        }
+        // Stored with 2 decimals: round here so what is validated is exactly what gets saved
+        BigDecimal amount = dto.getAmount() == null ? null : dto.getAmount().setScale(2, RoundingMode.HALF_UP);
+        if (amount == null || amount.signum() <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El importe debe ser mayor que 0");
         }
+        if (amount.compareTo(MAX_AMOUNT) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El importe es demasiado grande (máximo 999.999.999,99 €)");
+        }
+        dto.setAmount(amount);
         if (dto.getDate() != null && dto.getDate().isAfter(LocalDate.now().plusDays(1))) { // +1 day: client may be ahead of server (UTC)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha no puede ser futura");
         }

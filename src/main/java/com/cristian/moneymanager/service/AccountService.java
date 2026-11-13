@@ -15,6 +15,7 @@ import com.cristian.moneymanager.repository.ExpenseRepository;
 import com.cristian.moneymanager.repository.GoalContributionRepository;
 import com.cristian.moneymanager.repository.GoalRepository;
 import com.cristian.moneymanager.repository.IncomeRepository;
+import com.cristian.moneymanager.repository.ProfilePhotoRepository;
 import com.cristian.moneymanager.repository.ProfileRepository;
 import com.cristian.moneymanager.repository.RecurringRepository;
 import com.cristian.moneymanager.repository.RefreshTokenRepository;
@@ -39,7 +40,6 @@ public class AccountService {
     /** Wrong current passwords allowed before the action is blocked for a while. */
     private static final int MAX_PASSWORD_FAILURES = 5;
     private static final Duration PASSWORD_FAILURE_WINDOW = Duration.ofMinutes(15);
-    private static final int MAX_IMAGE_URL_LENGTH = 255;
 
     private final ProfileService profileService;
     private final ProfileRepository profileRepository;
@@ -53,6 +53,7 @@ public class AccountService {
     private final RecurringRepository recurringRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final RefreshTokenService refreshTokenService;
+    private final ProfilePhotoRepository profilePhotoRepository;
     private final PasswordEncoder passwordEncoder;
     private final RateLimiter rateLimiter;
     private final EmailService emailService;
@@ -63,7 +64,13 @@ public class AccountService {
         }
         ProfileEntity profile = profileService.getCurrentProfile();
         profile.setFullName(InputRules.validateFullName(request.fullName()));
-        profile.setProfileImageUrl(validateImageUrl(request.profileImageUrl()));
+        // The photo is uploaded with PUT /profile/photo; here it can only be kept or removed
+        if (request.profileImageUrl() == null || request.profileImageUrl().isBlank()) {
+            profilePhotoRepository.deleteById(profile.getId());
+            profile.setProfileImageUrl(null);
+        } else if (!request.profileImageUrl().equals(profile.getProfileImageUrl())) {
+            throw badRequest("Sube la foto desde tu perfil");
+        }
         return profileService.toDto(profileRepository.save(profile));
     }
 
@@ -129,6 +136,7 @@ public class AccountService {
 
         Long profileId = profile.getId();
         refreshTokenRepository.deleteByProfileId(profileId);
+        profilePhotoRepository.deleteById(profileId);
         attachmentRepository.deleteByProfileId(profileId);
         goalContributionRepository.deleteByProfileId(profileId);
         goalRepository.deleteByProfileId(profileId);
@@ -153,17 +161,6 @@ public class AccountService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "WRONG_PASSWORD", "La contraseña actual no es correcta");
         }
         rateLimiter.reset(failuresKey);
-    }
-
-    static String validateImageUrl(String url) {
-        if (url == null || url.isBlank()) {
-            return null;
-        }
-        String trimmed = url.trim();
-        if (!trimmed.startsWith("https://") || trimmed.length() > MAX_IMAGE_URL_LENGTH || trimmed.matches(".*\\s.*")) {
-            throw badRequest("La URL de la foto no es válida");
-        }
-        return trimmed;
     }
 
     private void notifyPasswordChanged(ProfileEntity profile) {
