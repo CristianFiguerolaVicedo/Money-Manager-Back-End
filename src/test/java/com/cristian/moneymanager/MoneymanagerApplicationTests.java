@@ -58,6 +58,15 @@ class MoneymanagerApplicationTests {
     }
 
     @Test
+    void registerRequiresAcceptingThePrivacyPolicyAndTerms() throws Exception {
+        mockMvc.perform(post("/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"Ana\",\"email\":\"ana-terms@example.com\",\"password\":\"abcdefg1\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("política de privacidad")));
+    }
+
+    @Test
     void loginWithUnknownUserFails() throws Exception {
         mockMvc.perform(post("/login")
                         .contentType(MediaType.APPLICATION_JSON)

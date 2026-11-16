@@ -98,6 +98,12 @@ La API queda en `http://localhost:8080/api/v1.0` (comprueba `GET /health`). Flyw
 - Los adjuntos y las fotos se validan por sus primeros bytes, no por el nombre (JPG, PNG, WebP y PDF; 2 MB por adjunto y 1 MB por foto).
 - Las fotos de perfil se suben al backend (`PUT /profile/photo`); ya no se usa Cloudinary.
 
+## RGPD
+
+- `POST /register` exige `acceptTerms: true` y guarda cuándo y qué versión se aceptó (`ProfileService.TERMS_VERSION`, que debe coincidir con `src/util/legal.js` del frontend).
+- `GET /profile/export` descarga en JSON todo lo guardado del usuario (sin contraseña ni tokens): cuenta, categorías, ingresos, gastos, presupuestos, objetivos con aportaciones, recurrentes y la lista de adjuntos.
+- `DELETE /profile` borra la cuenta y todo lo asociado.
+
 ## Tests
 
 ```bash
@@ -123,6 +129,7 @@ El esquema está versionado en `src/main/resources/db/migration` y Hibernate sol
 | V5 | Notas y archivos adjuntos |
 | V6 | Refresh tokens de sesión y `tokens_valid_after` en perfiles |
 | V7 | Fotos de perfil guardadas en la base de datos |
+| V8 | Consentimiento RGPD en el registro (`terms_accepted_at`, `terms_version`) |
 
 ## Tareas programadas
 

@@ -49,6 +49,10 @@ public class ProfileEntity {
     /** Access tokens issued before this moment are no longer accepted (password change/reset). */
     private LocalDateTime tokensValidAfter;
 
+    /** GDPR consent given at signup: when, and which version of the privacy policy and terms. */
+    private LocalDateTime termsAcceptedAt;
+    private String termsVersion;
+
     @PrePersist
     public void prePersist() {
         if (this.isActive == null) {

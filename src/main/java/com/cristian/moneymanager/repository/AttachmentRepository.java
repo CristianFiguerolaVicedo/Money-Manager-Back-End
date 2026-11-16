@@ -48,4 +48,9 @@ public interface AttachmentRepository extends JpaRepository<AttachmentEntity, Lo
     @Modifying
     @Query("DELETE FROM AttachmentEntity a WHERE a.expenseId = :expenseId")
     int deleteByExpenseId(@Param("expenseId") Long expenseId);
+
+    /** Data export: what each attachment is and which movement it belongs to (the files are downloaded one by one). */
+    @Query("SELECT a.id, a.filename, a.contentType, a.sizeBytes, a.incomeId, a.expenseId, a.createdAt "
+            + "FROM AttachmentEntity a WHERE a.profile.id = :profileId ORDER BY a.id")
+    List<Object[]> exportForProfile(@Param("profileId") Long profileId);
 }

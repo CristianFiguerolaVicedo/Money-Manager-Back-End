@@ -34,6 +34,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProfileService {
 
+    /** Date of the privacy policy and terms published in the web (/privacy and /terms). Change both together. */
+    public static final String TERMS_VERSION = "2026-11-16";
+
     private final ProfileRepository profileRepository;
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
@@ -53,6 +56,10 @@ public class ProfileService {
         profileDto.setFullName(InputRules.validateFullName(profileDto.getFullName()));
         profileDto.setEmail(InputRules.validateEmail(profileDto.getEmail()));
         InputRules.validatePassword(profileDto.getPassword());
+        if (!Boolean.TRUE.equals(profileDto.getAcceptTerms())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Para crear la cuenta tienes que aceptar la política de privacidad y los términos de uso");
+        }
         profileDto.setId(null); // never let the client choose (or overwrite) an id
 
         ProfileEntity existing = profileRepository.findByEmail(profileDto.getEmail()).orElse(null);
@@ -70,6 +77,9 @@ public class ProfileService {
             existing.setProfileImageUrl(fresh.getProfileImageUrl());
             profile = existing;
         }
+        // Proof of consent (GDPR art. 7): when and which version
+        profile.setTermsAcceptedAt(LocalDateTime.now());
+        profile.setTermsVersion(TERMS_VERSION);
 
         assignActivationToken(profile);
         profile = profileRepository.save(profile);
@@ -206,6 +216,8 @@ public class ProfileService {
                 .emailDailyReminder(Boolean.TRUE.equals(profileEntity.getEmailDailyReminder()))
                 .emailDailySummary(Boolean.TRUE.equals(profileEntity.getEmailDailySummary()))
                 .emailMonthlyReport(Boolean.TRUE.equals(profileEntity.getEmailMonthlyReport()))
+                .termsAcceptedAt(profileEntity.getTermsAcceptedAt())
+                .termsVersion(profileEntity.getTermsVersion())
                 .build();
     }
 
