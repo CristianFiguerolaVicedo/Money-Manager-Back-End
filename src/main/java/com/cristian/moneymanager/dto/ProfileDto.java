@@ -1,5 +1,6 @@
 package com.cristian.moneymanager.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -23,4 +24,10 @@ public class ProfileDto {
     private Boolean emailDailyReminder;
     private Boolean emailDailySummary;
     private Boolean emailMonthlyReport;
+
+    /** Signup only: the "I accept the privacy policy and terms" checkbox. Never returned. */
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private Boolean acceptTerms;
+    private LocalDateTime termsAcceptedAt;
+    private String termsVersion;
 }

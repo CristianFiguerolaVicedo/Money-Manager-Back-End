@@ -7,16 +7,20 @@ import com.cristian.moneymanager.dto.ProfileDto;
 import com.cristian.moneymanager.entity.ProfileEntity;
 import com.cristian.moneymanager.security.SessionCookie;
 import com.cristian.moneymanager.service.AccountService;
+import com.cristian.moneymanager.service.DataExportService;
 import com.cristian.moneymanager.service.RefreshTokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import com.cristian.moneymanager.service.PasswordResetService;
 import com.cristian.moneymanager.service.ProfileService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.Map;
 
 @RestController
@@ -28,6 +32,7 @@ public class ProfileController {
     private final AccountService accountService;
     private final RefreshTokenService refreshTokenService;
     private final SessionCookie sessionCookie;
+    private final DataExportService dataExportService;
 
     @PostMapping(path = "/register")
     public ResponseEntity<ProfileDto> registerProfile(@RequestBody ProfileDto profileDto) {
@@ -134,6 +139,16 @@ public class ProfileController {
     public ResponseEntity<Map<String, Object>> unsubscribe(@RequestBody(required = false) AccountDtos.UnsubscribeRequest request) {
         accountService.unsubscribe(request == null ? null : request.token());
         return ResponseEntity.ok(Map.of("message", "Ya no recibirás más emails programados"));
+    }
+
+    /** GDPR: download everything stored about you as JSON. */
+    @GetMapping("/profile/export")
+    public ResponseEntity<Map<String, Object>> exportData() {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename("money-manager-mis-datos-" + LocalDate.now() + ".json").build().toString())
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(dataExportService.export());
     }
 
     @DeleteMapping("/profile")

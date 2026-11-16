@@ -106,6 +106,28 @@ class AccountFlowTests {
     }
 
     @Test
+    void exportsAllTheUsersDataWithoutSecrets() throws Exception {
+        String category = mockMvc.perform(auth(post("/categories")).content("{\"name\":\"Comida\",\"type\":\"expense\"}"))
+                .andReturn().getResponse().getContentAsString();
+        Number categoryId = JsonPath.read(category, "$.id");
+        mockMvc.perform(auth(post("/expenses")).content("{\"name\":\"Pan\",\"amount\":2.5,\"date\":\"" + LocalDate.now()
+                        + "\",\"categoryId\":" + categoryId + ",\"note\":\"desayuno\"}"))
+                .andExpect(status().is2xxSuccessful());
+
+        String json = mockMvc.perform(auth(get("/profile/export")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment; filename=\"money-manager-mis-datos-")))
+                .andExpect(jsonPath("$.account.email").exists())
+                .andExpect(jsonPath("$.categories[0].name").value("Comida"))
+                .andExpect(jsonPath("$.expenses[0].note").value("desayuno"))
+                .andExpect(jsonPath("$.incomes").isArray())
+                .andExpect(jsonPath("$.goals").isArray())
+                .andExpect(jsonPath("$.attachments").isArray())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(json).doesNotContain("\"password\"", "Token", "token");
+    }
+
+    @Test
     void changesPasswordOnlyWithTheCurrentOne() throws Exception {
         mockMvc.perform(auth(put("/profile/password"))
                         .content("{\"currentPassword\":\"wrong-pass1\",\"newPassword\":\"nuevaClave9\"}"))
