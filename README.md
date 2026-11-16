@@ -39,7 +39,7 @@ src/main/java/com/cristian/moneymanager/
 ├── entity/        Tablas (JPA)
 ├── exception/     Errores → JSON {"message": "..."} en español
 ├── repository/    Consultas (Spring Data)
-├── security/      Filtro JWT y límite de peticiones por IP
+├── security/      Filtro JWT, cookie de sesión, IP real del proxy firmado y límite de peticiones
 ├── service/       Lógica de negocio
 └── util/          JWT, validaciones, meses
 src/main/resources/
@@ -71,7 +71,7 @@ La web llama a la API a través del proxy de Netlify (`/api/*` en su mismo domin
 | `BREVO_SENDER_EMAIL` | No | Remitente verificado en Brevo |
 | `CORS_ALLOWED_ORIGINS` | No | Orígenes permitidos (por defecto la web, sus vistas previas de Netlify y `localhost`) |
 | `JOBS_SECRET` | Para los emails programados | Debe coincidir con el secreto `JOBS_SECRET` del repositorio en GitHub |
-| `NETLIFY_PROXY_SECRET` | Recomendada | El mismo valor que en Netlify (al menos 32 caracteres). Sirve para fiarse de la IP real que manda el proxy firmado y que el límite de peticiones vaya por usuario |
+| `NETLIFY_PROXY_SECRET` | Sí en producción | El mismo valor que en Netlify (al menos 32 caracteres; allí con alcance *Runtime*). Sirve para fiarse de la IP real que manda el proxy firmado y que el límite de peticiones vaya por usuario. Sin ella el límite se aplica por la IP que llegue y se puede falsear |
 | `APP_COOKIE_SECURE` | No | `true` por defecto. Ponla a `false` solo en local si pruebas sin HTTPS |
 
 ## Ejecutar en local
@@ -97,6 +97,7 @@ La API queda en `http://localhost:8080/api/v1.0` (comprueba `GET /health`). Flyw
 - Los importes se redondean a 2 decimales en el servidor y tienen un máximo de 999.999.999,99 €.
 - Los adjuntos y las fotos se validan por sus primeros bytes, no por el nombre (JPG, PNG, WebP y PDF; 2 MB por adjunto y 1 MB por foto).
 - Las fotos de perfil se suben al backend (`PUT /profile/photo`); ya no se usa Cloudinary.
+- Límite de peticiones por IP en login, registro, recuperación de contraseña y `/refresh-token`. Detrás del proxy de Netlify la IP se toma de `X-Nf-Client-Connection-Ip` solo si la firma `x-nf-sign` es válida.
 
 ## RGPD
 
