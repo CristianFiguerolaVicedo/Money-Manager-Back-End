@@ -9,7 +9,7 @@ import com.cristian.moneymanager.util.MonthParam;
 import com.cristian.moneymanager.repository.ExpenseRepository;
 import lombok.RequiredArgsConstructor;
 import com.cristian.moneymanager.dto.PageDto;
-import com.cristian.moneymanager.util.LikeEscape;
+import com.cristian.moneymanager.dto.SearchCriteria;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -99,21 +99,16 @@ public class ExpenseService {
     }
 
     /** One page of a search, with the total amount of every matching expense. */
-    public PageDto<ExpenseDto> filterExpensesPage(LocalDate startDate, LocalDate endDate, String keyword, Pageable pageable) {
-        ProfileEntity profile = profileService.getCurrentProfile();
-        Page<ExpenseEntity> page = expenseRepository.findByProfileIdAndDateBetweenAndNameContainingIgnoreCase(profile.getId(), startDate, endDate, keyword, pageable);
-        BigDecimal total = expenseRepository.sumForSearch(profile.getId(), startDate, endDate, LikeEscape.escape(keyword));
+    public PageDto<ExpenseDto> filterExpensesPage(SearchCriteria criteria, Pageable pageable) {
+        Page<ExpenseEntity> page = expenseRepository.search(criteria, pageable);
+        BigDecimal total = expenseRepository.sumForSearch(criteria);
         return new PageDto<>(withAttachmentCounts(page.getContent().stream().map(this::toDto).toList()),
                 page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages(), total);
     }
 
-    public List<ExpenseDto> filterExpenses(LocalDate startDate, LocalDate endDate, String keyword, Sort sort) {
-        ProfileEntity profile = profileService.getCurrentProfile();
-        List<ExpenseEntity> list = expenseRepository.findByProfileIdAndDateBetweenAndNameContainingIgnoreCase(profile.getId(), startDate, endDate, keyword, sort);
-
-        return list.stream()
-                .map(this::toDto)
-                .toList();
+    /** Every match of a search (for "Todos", which merges incomes and expenses). */
+    public List<ExpenseDto> filterExpenses(SearchCriteria criteria, Sort sort) {
+        return withAttachmentCounts(expenseRepository.search(criteria, sort).stream().map(this::toDto).toList());
     }
 
     //////////////////////////////// Notifications methods

@@ -18,6 +18,8 @@ public class CategoryDto {
     private String name;
     private String type;
     private String icon;
+    /** Optional parent: this is then a subcategory (one level only, same type). */
+    private Long parentId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

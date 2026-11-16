@@ -63,7 +63,7 @@ public class DataExportService {
         data.put("account", account);
 
         data.put("categories", categoryRepository.findByProfileId(id).stream().map(c -> row(
-                "id", c.getId(), "name", c.getName(), "type", c.getType(), "icon", c.getIcon(), "createdAt", c.getCreatedAt())).toList());
+                "id", c.getId(), "name", c.getName(), "type", c.getType(), "icon", c.getIcon(), "parentId", c.getParentId(), "createdAt", c.getCreatedAt())).toList());
         data.put("incomes", incomeRepository.findByProfileIdOrderByDateDesc(id).stream().map(DataExportService::income).toList());
         data.put("expenses", expenseRepository.findByProfileIdOrderByDateDesc(id).stream().map(DataExportService::expense).toList());
         data.put("budgets", budgetRepository.findByProfileId(id).stream().map(b -> row(

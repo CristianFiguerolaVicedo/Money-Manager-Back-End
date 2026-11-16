@@ -35,6 +35,10 @@ public class CategoryEntity {
 
     private String icon;
 
+    /** Parent category (same type, one level only), or null for a main category. */
+    @Column(name = "parent_id")
+    private Long parentId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "profile_id", nullable = false)
     private ProfileEntity profile;
