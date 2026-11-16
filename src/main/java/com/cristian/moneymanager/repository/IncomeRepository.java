@@ -1,5 +1,6 @@
 package com.cristian.moneymanager.repository;
 
+import com.cristian.moneymanager.dto.SearchCriteria;
 import com.cristian.moneymanager.entity.IncomeEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,14 +23,20 @@ public interface IncomeRepository extends JpaRepository<IncomeEntity, Long> {
     @Query("SELECT SUM(i.amount) FROM IncomeEntity i WHERE i.profile.id = :profileId")
     BigDecimal findTotalIncomeByProfileId(@Param("profileId") Long profileId);
 
-    List<IncomeEntity> findByProfileIdAndDateBetweenAndNameContainingIgnoreCase(Long profileId, LocalDate startDate, LocalDate endDate, String keyword, Sort sort);
-    Page<IncomeEntity> findByProfileIdAndDateBetweenAndNameContainingIgnoreCase(Long profileId, LocalDate startDate, LocalDate endDate, String keyword, Pageable pageable);
+    /** Search conditions shared by the list, the page and the total (see SearchCriteria). */
+    String SEARCH_WHERE = "WHERE t.profile.id = :#{#c.profileId()} AND t.date BETWEEN :#{#c.startDate()} AND :#{#c.endDate()} "
+            + "AND LOWER(t.name) LIKE LOWER(CONCAT('%', :#{#c.keyword()}, '%')) ESCAPE '\\' "
+            + "AND (:#{#c.anyCategory()} = true OR t.category.id IN :#{#c.categoryIdsForQuery()}) "
+            + "AND t.amount >= :#{#c.minAmount()} AND t.amount <= :#{#c.maxAmount()}";
 
-    /** Total of a search; keyword must already have %, _ and \\ escaped (see LikeEscape). */
-    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM IncomeEntity t WHERE t.profile.id = :profileId AND t.date BETWEEN :startDate AND :endDate "
-            + "AND LOWER(t.name) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'")
-    BigDecimal sumForSearch(@Param("profileId") Long profileId, @Param("startDate") LocalDate startDate,
-                            @Param("endDate") LocalDate endDate, @Param("keyword") String keyword);
+    @Query("SELECT t FROM IncomeEntity t " + SEARCH_WHERE)
+    List<IncomeEntity> search(@Param("c") SearchCriteria c, Sort sort);
+
+    @Query(value = "SELECT t FROM IncomeEntity t " + SEARCH_WHERE, countQuery = "SELECT COUNT(t) FROM IncomeEntity t " + SEARCH_WHERE)
+    Page<IncomeEntity> search(@Param("c") SearchCriteria c, Pageable pageable);
+
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM IncomeEntity t " + SEARCH_WHERE)
+    BigDecimal sumForSearch(@Param("c") SearchCriteria c);
     List<IncomeEntity> findByProfileIdAndDateBetween(Long profileId, LocalDate startDate, LocalDate endDate);
     boolean existsByProfileIdAndDate(Long profileId, LocalDate date);
     List<IncomeEntity> findByProfileIdAndDateBetweenOrderByDateDescIdDesc(Long profileId, LocalDate startDate, LocalDate endDate);

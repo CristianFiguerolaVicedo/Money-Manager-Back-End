@@ -38,6 +38,7 @@ public class CategoryService {
 
         categoryDto.setName(name);
         categoryDto.setType(normalizeType(categoryDto.getType()));
+        validateParent(categoryDto.getParentId(), categoryDto.getType(), null, profile);
         CategoryEntity newCategory = toEntity(categoryDto, profile);
         newCategory = categoryRepository.save(newCategory);
         return toDto(newCategory);
@@ -72,6 +73,8 @@ public class CategoryService {
         // The type is intentionally not editable: incomes/expenses already linked to it would become inconsistent
         existingCategory.setName(name);
         existingCategory.setIcon(dto.getIcon());
+        validateParent(dto.getParentId(), existingCategory.getType(), existingCategory.getId(), profile);
+        existingCategory.setParentId(dto.getParentId());
 
         existingCategory = categoryRepository.save(existingCategory);
         return toDto(existingCategory);
@@ -112,7 +115,32 @@ public class CategoryService {
         }
 
         budgetRepository.deleteByCategoryId(id);
+        categoryRepository.detachChildren(id);
         categoryRepository.delete(category);
+    }
+
+    /**
+     * Subcategories: the parent must be one of the user's categories, of the same type and a main category
+     * itself (one level only); a category that already has subcategories cannot become one.
+     */
+    private void validateParent(Long parentId, String type, Long selfId, ProfileEntity profile) {
+        if (parentId == null) {
+            return;
+        }
+        if (parentId.equals(selfId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Una categoría no puede ser subcategoría de sí misma");
+        }
+        CategoryEntity parent = categoryRepository.findByIdAndProfileId(parentId, profile.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "La categoría principal no existe"));
+        if (!parent.getType().equalsIgnoreCase(type)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La categoría principal debe ser del mismo tipo");
+        }
+        if (parent.getParentId() != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Solo hay un nivel de subcategorías: elige una categoría principal");
+        }
+        if (selfId != null && categoryRepository.existsByParentId(selfId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Esta categoría tiene subcategorías, así que no puede ser subcategoría de otra");
+        }
     }
 
     private String requireName(String name) {
@@ -134,6 +162,7 @@ public class CategoryService {
                 .name(categoryDto.getName())
                 .type(categoryDto.getType())
                 .icon(categoryDto.getIcon())
+                .parentId(categoryDto.getParentId())
                 .profile(profile)
                 .build();
     }
@@ -147,6 +176,7 @@ public class CategoryService {
                 .createdAt(categoryEntity.getCreatedAt())
                 .updatedAt(categoryEntity.getUpdatedAt())
                 .type(categoryEntity.getType())
+                .parentId(categoryEntity.getParentId())
                 .build();
     }
 }

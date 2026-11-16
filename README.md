@@ -13,7 +13,7 @@ API REST de **Money Manager**, una aplicación para llevar tus ingresos y gastos
 - Movimientos recurrentes (semanales, mensuales o anuales) que se crean solos.
 - Presupuestos mensuales por categoría y objetivos de ahorro con aportaciones.
 - Panel con totales, los últimos 6 meses y los gastos por categoría.
-- Búsqueda con filtros y paginación, exportación a Excel (descarga o email) e importación desde CSV.
+- Subcategorías (un nivel) y búsqueda por tipo (ingresos, gastos o todos), categoría con sus subcategorías, importe mínimo y máximo, texto y fechas, con paginación; exportación a Excel (descarga o email) e importación desde CSV.
 - Emails opcionales (recordatorio diario, resumen diario e informe mensual) con baja en un clic.
 
 ## Tecnología
@@ -130,6 +130,7 @@ El esquema está versionado en `src/main/resources/db/migration` y Hibernate sol
 | V6 | Refresh tokens de sesión y `tokens_valid_after` en perfiles |
 | V7 | Fotos de perfil guardadas en la base de datos |
 | V8 | Consentimiento RGPD en el registro (`terms_accepted_at`, `terms_version`) |
+| V9 | Subcategorías (`parent_id` en categorías) |
 
 ## Tareas programadas
 
